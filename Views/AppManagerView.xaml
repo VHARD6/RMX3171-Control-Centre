@@ -11,9 +11,10 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-            <Button Content="Scan Installed Apps" Command="{Binding RefreshCommand}" Padding="15,6" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0"/>
-            <TextBlock Text="Loading..." Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="15,0,0,0"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+            <TextBlock Text="Application Manager" Foreground="White" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button Content="Scan Packages" Command="{Binding RefreshCommand}" Margin="20,0,0,0" Padding="15,6" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center" IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
+            <TextBlock Text="Scanning..." Foreground="Orange" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}">

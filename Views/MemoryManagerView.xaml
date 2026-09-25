@@ -19,11 +19,11 @@
         </Grid.RowDefinitions>
 
         <!-- Top Header & Actions -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-            <Button Content="Refresh Memory" Command="{Binding RefreshCommand}" HorizontalAlignment="Left" Padding="15,6" Margin="0,0,15,0" />
-            <TextBlock Text="Refreshing memory metrics..." VerticalAlignment="Center" 
-                       Foreground="{StaticResource SecondaryTextBrush}"
-                       Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+            <TextBlock Text="Memory &amp; Tasks" Foreground="White" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button Content="Refresh Now" Command="{Binding RefreshCommand}" Margin="20,0,0,0" Padding="15,6" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center" IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
+            <TextBlock Text="Refreshing..." Foreground="Orange" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <TextBlock Text="{Binding LastUpdatedText}" Foreground="Gray" VerticalAlignment="Center" Margin="10,0,0,0"/>
         </StackPanel>
 
         <!-- Educational / Safety Banner -->

@@ -27,6 +27,7 @@ namespace RMX3171ControlCentre
             services.AddSingleton<IDialogService, DialogService>();
             services.AddSingleton<IAuditService, AuditService>();
             services.AddSingleton<IAppModeService, AppModeService>();
+            services.AddSingleton<RMX3171ControlCentre.Services.Telemetry.ITelemetryService, RMX3171ControlCentre.Services.Telemetry.TelemetryService>();
             services.AddSingleton<IAdbService, AdbService>();
             services.AddSingleton<IDeviceService, DeviceService>();
             services.AddSingleton<IBatteryService, BatteryService>();

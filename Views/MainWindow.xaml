@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:RMX3171ControlCentre.Views"
         xmlns:viewmodels="clr-namespace:RMX3171ControlCentre.ViewModels"
-        Title="RMX3171 Control Centre" Height="600" Width="900"
+        Title="RMX3171 Control Centre" Height="800" Width="1200" MinHeight="650" MinWidth="1000"
         WindowStartupLocation="CenterScreen">
     
     <Window.Resources>

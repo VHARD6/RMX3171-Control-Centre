@@ -12,7 +12,6 @@ namespace RMX3171ControlCentre.ViewModels
     public partial class MainViewModel : ViewModelBase
     {
         private readonly IDeviceService _deviceService;
-        private DispatcherTimer _timer;
 
         [ObservableProperty]
         private ViewModelBase _currentViewModel;
@@ -25,6 +24,7 @@ namespace RMX3171ControlCentre.ViewModels
 
         private readonly IAppModeService _appModeService;
         private readonly IDialogService _dialogService;
+        private readonly RMX3171ControlCentre.Services.Telemetry.ITelemetryService _telemetryService;
 
         public DashboardViewModel DashboardVM { get; }
         public DeviceInfoViewModel DeviceInfoVM { get; }
@@ -48,6 +48,7 @@ namespace RMX3171ControlCentre.ViewModels
             IDeviceService deviceService,
             IAppModeService appModeService,
             IDialogService dialogService,
+            RMX3171ControlCentre.Services.Telemetry.ITelemetryService telemetryService,
             DashboardViewModel dashboardVM,
             DeviceInfoViewModel deviceInfoVM,
             StorageViewModel storageVM,
@@ -60,6 +61,7 @@ namespace RMX3171ControlCentre.ViewModels
             _deviceService = deviceService;
             _appModeService = appModeService;
             _dialogService = dialogService;
+            _telemetryService = telemetryService;
             DashboardVM = dashboardVM;
             DeviceInfoVM = deviceInfoVM;
             StorageVM = storageVM;
@@ -78,12 +80,30 @@ namespace RMX3171ControlCentre.ViewModels
                 ModeColor = IsAdvancedMode ? "Orange" : "LimeGreen";
             };
 
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-            _timer.Tick += async (s, e) => await CheckConnectionAsync();
-            _timer.Start();
+            _telemetryService.SnapshotUpdated += (s, e) =>
+            {
+                App.Current.Dispatcher.Invoke(() =>
+                {
+                    var snap = _telemetryService.CurrentSnapshot;
+                    if (snap.IsConnected)
+                    {
+                        ConnectionStatus = $"CONNECTED — {snap.ConnectionTransport}";
+                        ConnectionColor = "LimeGreen";
+                    }
+                    else if (snap.ConnectionTransport == "Unauthorized")
+                    {
+                        ConnectionStatus = "UNAUTHORIZED";
+                        ConnectionColor = "Orange";
+                    }
+                    else
+                    {
+                        ConnectionStatus = "NO DEVICE / CONNECTION LOST";
+                        ConnectionColor = "Red";
+                    }
+                });
+            };
 
-            // Initial check
-            _ = CheckConnectionAsync();
+            _telemetryService.Start();
         }
 
         [RelayCommand]
@@ -119,33 +139,17 @@ namespace RMX3171ControlCentre.ViewModels
                 "Logs" => LogsVM,
                 _ => DashboardVM
             };
+
+            // Lazy load expensive pages if empty
+            if (viewName == "AppManager" && AppManagerVM.Packages.Count == 0)
+            {
+                _ = AppManagerVM.RefreshCommand.ExecuteAsync(null);
+            }
+            if (viewName == "Device" && DeviceInfoVM.Properties.Count == 0)
+            {
+                _ = DeviceInfoVM.LoadPropertiesCommand.ExecuteAsync(null);
+            }
         }
 
-        private async Task CheckConnectionAsync()
-        {
-            var state = await _deviceService.GetConnectionStateAsync();
-            
-            ConnectionStatus = state switch
-            {
-                ConnectionState.CONNECTED_USB => "CONNECTED — USB",
-                ConnectionState.CONNECTED_WIFI => "CONNECTED — Wi-Fi",
-                ConnectionState.CONNECTED_UNKNOWN => "CONNECTED",
-                ConnectionState.UNAUTHORIZED => "UNAUTHORIZED",
-                ConnectionState.OFFLINE => "OFFLINE",
-                ConnectionState.NO_DEVICE => "NO DEVICE",
-                _ => "UNKNOWN"
-            };
-            
-            ConnectionColor = state switch
-            {
-                ConnectionState.CONNECTED_USB => "LimeGreen",
-                ConnectionState.CONNECTED_WIFI => "Cyan",
-                ConnectionState.CONNECTED_UNKNOWN => "LimeGreen",
-                ConnectionState.UNAUTHORIZED => "Orange",
-                ConnectionState.OFFLINE => "Red",
-                ConnectionState.NO_DEVICE => "Gray",
-                _ => "Gray"
-            };
-        }
     }
 }

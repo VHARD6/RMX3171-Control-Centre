@@ -4,18 +4,23 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
-    <Grid>
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         
-        <Button Grid.Row="0" Content="Refresh Storage Info" Command="{Binding RefreshStorageCommand}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+            <TextBlock Text="Storage Dashboard" Foreground="White" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button Content="Refresh Now" Command="{Binding RefreshStorageCommand}" Margin="20,0,0,0" Padding="15,6" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center" IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
+            <TextBlock Text="Refreshing..." Foreground="Orange" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <TextBlock Text="{Binding LastUpdatedText}" Foreground="Gray" VerticalAlignment="Center" Margin="10,0,0,0"/>
+        </StackPanel>
         
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- Simple View -->
-                <Border Style="{StaticResource CardStyle}" MaxWidth="500" HorizontalAlignment="Left">
+                <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch">
                     <StackPanel>
                         <TextBlock Text="INTERNAL STORAGE" FontSize="16" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,15"/>
                         

@@ -24,14 +24,26 @@ namespace RMX3171ControlCentre.ViewModels
             _deviceService = deviceService;
         }
 
+        [ObservableProperty]
+        private bool _isRefreshing;
+
         [RelayCommand]
         private async Task LoadPropertiesAsync()
         {
-            Properties.Clear();
-            var props = await _deviceService.GetDevicePropertiesAsync();
-            foreach (var kvp in props.OrderBy(p => p.Key))
+            if (IsRefreshing) return;
+            IsRefreshing = true;
+            try
             {
-                Properties.Add(new DeviceProperty { Key = kvp.Key, Value = kvp.Value });
+                var props = await _deviceService.GetDevicePropertiesAsync();
+                Properties.Clear();
+                foreach (var kvp in props.OrderBy(p => p.Key))
+                {
+                    Properties.Add(new DeviceProperty { Key = kvp.Key, Value = kvp.Value });
+                }
+            }
+            finally
+            {
+                IsRefreshing = false;
             }
         }
     }

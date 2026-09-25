@@ -17,6 +17,7 @@ namespace RMX3171ControlCentre.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IAppModeService _appModeService;
         private readonly IAuditService _auditService;
+        private readonly RMX3171ControlCentre.Services.Telemetry.ITelemetryService _telemetryService;
 
         [ObservableProperty]
         private MemoryInfo _currentMemoryInfo = new MemoryInfo();
@@ -26,17 +27,45 @@ namespace RMX3171ControlCentre.ViewModels
 
         [ObservableProperty]
         private bool _isRefreshing;
+        
+        [ObservableProperty]
+        private string _lastUpdatedText = "Waiting for data...";
 
         public MemoryManagerViewModel(
             IMemoryService memoryService,
             IDialogService dialogService,
             IAppModeService appModeService,
-            IAuditService auditService)
+            IAuditService auditService,
+            RMX3171ControlCentre.Services.Telemetry.ITelemetryService telemetryService)
         {
             _memoryService = memoryService;
             _dialogService = dialogService;
             _appModeService = appModeService;
             _auditService = auditService;
+            _telemetryService = telemetryService;
+
+            _telemetryService.SnapshotUpdated += (s, e) =>
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var snap = _telemetryService.CurrentSnapshot.Memory;
+                    if (snap.LastUpdated != System.DateTime.MinValue)
+                    {
+                        CurrentMemoryInfo.TotalGB = snap.TotalRamMb / 1024.0;
+                        CurrentMemoryInfo.UsedGB = snap.UsedRamMb / 1024.0;
+                        CurrentMemoryInfo.AvailableGB = snap.AvailableRamMb / 1024.0;
+                        CurrentMemoryInfo.CachedGB = snap.CachedRamMb / 1024.0;
+                        CurrentMemoryInfo.ZramTotalGB = snap.ZramTotalMb / 1024.0;
+                        CurrentMemoryInfo.ZramUsedGB = snap.ZramUsedMb / 1024.0;
+                        CurrentMemoryInfo.FreeGB = (snap.AvailableRamMb - snap.CachedRamMb) / 1024.0;
+                        
+                        var secondsAgo = (System.DateTime.Now - snap.LastUpdated).TotalSeconds;
+                        LastUpdatedText = secondsAgo > 5 ? $"Last updated {secondsAgo:F1}s ago" : "Live";
+
+                        OnPropertyChanged(nameof(CurrentMemoryInfo));
+                    }
+                });
+            };
         }
 
         [RelayCommand]
@@ -46,7 +75,7 @@ namespace RMX3171ControlCentre.ViewModels
             IsRefreshing = true;
             try
             {
-                CurrentMemoryInfo = await _memoryService.GetMemoryInfoAsync();
+                await _telemetryService.ForceRefreshAsync("All");
                 
                 var consumers = await _memoryService.GetTopConsumersAsync();
                 TopConsumers.Clear();

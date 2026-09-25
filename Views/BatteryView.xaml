@@ -32,8 +32,11 @@
         </Grid.RowDefinitions>
 
         <!-- Toolbar -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <Button Content="Refresh Battery Info" Command="{Binding RefreshBatteryCommand}"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+            <TextBlock Text="Battery Status" Foreground="White" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button Content="Refresh Now" Command="{Binding RefreshBatteryCommand}" Margin="20,0,0,0" Padding="15,6" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center" IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
+            <TextBlock Text="Refreshing..." Foreground="Orange" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <TextBlock Text="{Binding LastUpdatedText}" Foreground="Gray" VerticalAlignment="Center" Margin="10,0,0,0"/>
         </StackPanel>
 
         <!-- Scrollable content -->
@@ -82,7 +85,7 @@
                 </Border>
 
                 <!-- ═══════════ HEALTH CARD ══════════════════════════════════ -->
-                <Border Style="{StaticResource CardStyle}" MaxWidth="520" HorizontalAlignment="Left">
+                <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch">
                     <StackPanel>
                         <TextBlock Text="BATTERY HEALTH" FontSize="13" FontWeight="Bold"
                                    Foreground="#FF888888" Margin="0,0,0,12"/>
@@ -128,7 +131,7 @@
                 </Border>
 
                 <!-- ═══════════ CHARGING SECTION ═════════════════════════════ -->
-                <Border Style="{StaticResource CardStyle}" MaxWidth="520" HorizontalAlignment="Left">
+                <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch">
                     <StackPanel>
                         <TextBlock Text="CHARGING" FontSize="13" FontWeight="Bold"
                                    Foreground="#FF888888" Margin="0,0,0,12"/>
@@ -146,7 +149,7 @@
                         Background="Transparent" Foreground="#FF007ACC"/>
 
                 <!-- ═══════════ ADVANCED PANEL ════════════════════════════════ -->
-                <Border Style="{StaticResource CardStyle}" MaxWidth="780" HorizontalAlignment="Left"
+                <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch"
                         Visibility="{Binding IsAdvancedVisible, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <TextBlock Text="Complete battery property table — all values directly from ADB output."
