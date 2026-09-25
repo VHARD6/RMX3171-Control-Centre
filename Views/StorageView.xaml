@@ -1,0 +1,86 @@
+<UserControl x:Class="RMX3171ControlCentre.Views.StorageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Button Grid.Row="0" Content="Refresh Storage Info" Command="{Binding RefreshStorageCommand}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+        
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- Simple View -->
+                <Border Style="{StaticResource CardStyle}" MaxWidth="500" HorizontalAlignment="Left">
+                    <StackPanel>
+                        <TextBlock Text="INTERNAL STORAGE" FontSize="16" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,15"/>
+                        
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                            <TextBlock Text="{Binding InternalTotal}" FontSize="24" FontWeight="Bold" Foreground="White"/>
+                            <TextBlock Text=" total" FontSize="16" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                        </StackPanel>
+                        
+                        <ProgressBar Value="{Binding InternalUsagePercent}" Minimum="0" Maximum="100" Height="20" Margin="0,10,0,10" Foreground="{StaticResource PrimaryBrush}" Background="#FF333333" BorderThickness="0"/>
+                        
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <TextBlock Text="{Binding InternalUsageText}" FontWeight="Bold" Foreground="White" Margin="0,0,5,0"/>
+                            <TextBlock Text="used" Foreground="{StaticResource SecondaryTextBrush}"/>
+                        </StackPanel>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" Text="Used:" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding InternalUsed}" Foreground="White" FontWeight="Bold"/>
+                            
+                            <TextBlock Grid.Column="2" Text="Free:" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Grid.Column="3" Text="{Binding InternalFree}" Foreground="White" FontWeight="Bold"/>
+                        </Grid>
+                        
+                        <Border Background="#FF333333" Padding="10" Margin="0,20,0,0" CornerRadius="4">
+                            <TextBlock Text="Detailed category information (Apps, Photos, etc.) is not available through ADB on this device." 
+                                       Foreground="{StaticResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Advanced View Toggle -->
+                <Button Content="Advanced Storage Information ▼" Command="{Binding ToggleAdvancedCommand}" HorizontalAlignment="Left" Margin="5,20,0,10" Background="Transparent" Foreground="{StaticResource PrimaryBrush}"/>
+
+                <!-- Advanced View -->
+                <Border Style="{StaticResource CardStyle}" Visibility="{Binding IsAdvancedVisible, Converter={StaticResource BooleanToVisibilityConverter}}" MaxWidth="800" HorizontalAlignment="Left">
+                    <StackPanel>
+                        <TextBlock Text="Advanced information shows Android's internal partitions. Some system partitions are intentionally shown as 100% full and this does not necessarily indicate a storage problem." 
+                                   Foreground="{StaticResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,15"/>
+                        
+                        <DataGrid ItemsSource="{Binding Partitions}" AutoGenerateColumns="False" 
+                                  Background="{StaticResource CardBrush}" Foreground="Black" 
+                                  RowBackground="#FFEEEEEE" AlternatingRowBackground="White"
+                                  HeadersVisibility="Column" IsReadOnly="True" GridLinesVisibility="None" Margin="0,0,0,20">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Filesystem" Binding="{Binding Filesystem}" Width="180"/>
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="80"/>
+                                <DataGridTextColumn Header="Used" Binding="{Binding Used}" Width="80"/>
+                                <DataGridTextColumn Header="Free" Binding="{Binding Free}" Width="80"/>
+                                <DataGridTextColumn Header="Usage" Binding="{Binding Usage}" Width="80"/>
+                                <DataGridTextColumn Header="Mounted On" Binding="{Binding MountedOn}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock Text="Raw Output (Debugging):" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,5"/>
+                        <TextBox Text="{Binding StorageRawInfo}" IsReadOnly="True" FontFamily="Consolas" Foreground="White" Background="#FF1E1E1E" BorderThickness="1" BorderBrush="#FF333333" TextWrapping="Wrap" MaxHeight="150" VerticalScrollBarVisibility="Auto"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

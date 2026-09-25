@@ -1,0 +1,67 @@
+# .NET Core / WPF Build folders
+[Bb]in/
+[Oo]bj/
+[Tt]est[Rr]esults/
+
+# Visual Studio cache/options directory
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.rsuser
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.*~
+
+# Local logs
+logs/
+*.log
+
+# NuGet Packages
+*.nupkg
+packages/
+
+# Diagnostic & Application output (Custom for RMX3171 Control Centre)
+*dumpsys*
+*logcat*
+*battery_probe*
+*diagnostics*
+*device_dump*
+*telemetry*
+*probe*
+
+# Local device data & exports
+device-data/
+phone-data/
+adb-output/
+device-logs/
+reports/
+exports/
+
+# Secrets & Configuration
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials/
+appsettings.local.json
+config.local.json
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Platform Tools (Proprietary binaries)
+platform-tools/
+
+# Root-level binaries just in case
+*.exe
+*.dll

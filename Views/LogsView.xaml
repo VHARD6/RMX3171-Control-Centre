@@ -1,0 +1,24 @@
+<UserControl x:Class="RMX3171ControlCentre.Views.LogsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" Text="Command Logs" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+        
+        <ListView Grid.Row="1" ItemsSource="{Binding LogService.Logs}" Background="{StaticResource CardBrush}" Foreground="White" BorderThickness="0">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Time" DisplayMemberBinding="{Binding Timestamp, StringFormat='HH:mm:ss'}" Width="80"/>
+                    <GridViewColumn Header="Command" DisplayMemberBinding="{Binding Command}" Width="200"/>
+                    <GridViewColumn Header="Exit Code" DisplayMemberBinding="{Binding ExitCode}" Width="80"/>
+                    <GridViewColumn Header="Output" DisplayMemberBinding="{Binding Output}" Width="300"/>
+                    <GridViewColumn Header="Error" DisplayMemberBinding="{Binding Error}" Width="200"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</UserControl>
