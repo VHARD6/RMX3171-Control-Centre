@@ -73,11 +73,21 @@ namespace RMX3171ControlCentre.ViewModels
         private async Task CheckConnectionAsync()
         {
             var state = await _deviceService.GetConnectionStateAsync();
-            ConnectionStatus = state.ToString().Replace("_", " ");
+            
+            ConnectionStatus = state switch
+            {
+                ConnectionState.CONNECTED_USB => "CONNECTED — USB",
+                ConnectionState.CONNECTED_WIFI => "CONNECTED — Wi-Fi",
+                ConnectionState.UNAUTHORIZED => "UNAUTHORIZED",
+                ConnectionState.OFFLINE => "OFFLINE",
+                ConnectionState.NO_DEVICE => "NO DEVICE",
+                _ => "UNKNOWN"
+            };
             
             ConnectionColor = state switch
             {
-                ConnectionState.CONNECTED => "LimeGreen",
+                ConnectionState.CONNECTED_USB => "LimeGreen",
+                ConnectionState.CONNECTED_WIFI => "Cyan",
                 ConnectionState.UNAUTHORIZED => "Orange",
                 ConnectionState.OFFLINE => "Red",
                 ConnectionState.NO_DEVICE => "Gray",

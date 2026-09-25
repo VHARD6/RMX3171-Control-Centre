@@ -11,7 +11,8 @@ namespace RMX3171ControlCentre.Services.Device
         OFFLINE,
         UNAUTHORIZED,
         AUTHORIZED,
-        CONNECTED
+        CONNECTED_USB,
+        CONNECTED_WIFI
     }
 
     public interface IDeviceService
@@ -20,6 +21,9 @@ namespace RMX3171ControlCentre.Services.Device
         Task<Dictionary<string, string>> GetDevicePropertiesAsync();
         Task<string> GetStorageInfoAsync();
         Task<string> GetBatteryInfoAsync();
+        Task<(string Output, bool Success)> PairDeviceAsync(string ip, string port, string code);
+        Task<(string Output, bool Success)> ConnectDeviceAsync(string ip, string port);
+        Task<(string Output, bool Success)> DisconnectDeviceAsync();
     }
 
     public class DeviceService : IDeviceService
@@ -33,11 +37,13 @@ namespace RMX3171ControlCentre.Services.Device
 
         public async Task<ConnectionState> GetConnectionStateAsync()
         {
-            var result = await _adbService.ExecuteCommandAsync("devices");
+            var result = await _adbService.ExecuteCommandAsync("devices -l");
             if (result.ExitCode != 0) return ConnectionState.NO_DEVICE;
 
             var lines = result.Output.Split('\n');
             bool foundDevice = false;
+            ConnectionState state = ConnectionState.NO_DEVICE;
+
             foreach (var line in lines)
             {
                 if (line.StartsWith("List of devices attached")) continue;
@@ -46,10 +52,43 @@ namespace RMX3171ControlCentre.Services.Device
                 foundDevice = true;
                 if (line.Contains("unauthorized")) return ConnectionState.UNAUTHORIZED;
                 if (line.Contains("offline")) return ConnectionState.OFFLINE;
-                if (line.Contains("device")) return ConnectionState.CONNECTED;
+                
+                if (line.Contains("device"))
+                {
+                    // If it contains an IP:port or specifically looks like TCP/IP
+                    if (Regex.IsMatch(line, @"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+\b"))
+                    {
+                        state = ConnectionState.CONNECTED_WIFI;
+                    }
+                    else
+                    {
+                        state = ConnectionState.CONNECTED_USB;
+                    }
+                    
+                    // Prioritize returning immediately so we pick the first one, or just return.
+                    return state;
+                }
             }
 
-            return foundDevice ? ConnectionState.CONNECTED : ConnectionState.NO_DEVICE;
+            return foundDevice ? ConnectionState.UNAUTHORIZED : ConnectionState.NO_DEVICE;
+        }
+
+        public async Task<(string Output, bool Success)> PairDeviceAsync(string ip, string port, string code)
+        {
+            var result = await _adbService.ExecuteCommandAsync($"pair {ip}:{port} {code}", isReadOnly: true);
+            return (result.Output.Trim(), result.ExitCode == 0);
+        }
+
+        public async Task<(string Output, bool Success)> ConnectDeviceAsync(string ip, string port)
+        {
+            var result = await _adbService.ExecuteCommandAsync($"connect {ip}:{port}", isReadOnly: true);
+            return (result.Output.Trim(), result.ExitCode == 0);
+        }
+
+        public async Task<(string Output, bool Success)> DisconnectDeviceAsync()
+        {
+            var result = await _adbService.ExecuteCommandAsync($"disconnect", isReadOnly: true);
+            return (result.Output.Trim(), result.ExitCode == 0);
         }
 
         public async Task<Dictionary<string, string>> GetDevicePropertiesAsync()

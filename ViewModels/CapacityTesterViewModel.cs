@@ -14,11 +14,11 @@ namespace RMX3171ControlCentre.ViewModels
     {
         public string Time { get; set; } = "";
         public string Status { get; set; } = "";
-        public int Level { get; set; }
-        public int CurrentMa { get; set; }
-        public double VoltageV { get; set; }
-        public double TempC { get; set; }
-        public double AccumulatedMah { get; set; }
+        public string Battery { get; set; } = "";
+        public string Current { get; set; } = "";
+        public string Voltage { get; set; } = "";
+        public string Temp { get; set; } = "";
+        public string Accumulated { get; set; } = "";
     }
 
     public partial class CapacityTesterViewModel : ViewModelBase
@@ -27,6 +27,7 @@ namespace RMX3171ControlCentre.ViewModels
         private CancellationTokenSource? _cancellationTokenSource;
 
         [ObservableProperty] private bool _isRunning;
+        [ObservableProperty] private bool _isPaused;
         [ObservableProperty] private bool _isFinished;
         [ObservableProperty] private string _statusText = "Not running";
         [ObservableProperty] private string _errorText = "";
@@ -36,16 +37,17 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty] private int _stopPercentage = 30;
 
         // Current telemetry
-        [ObservableProperty] private string _currentDraw = "–";
-        [ObservableProperty] private string _voltage = "–";
-        [ObservableProperty] private string _temperature = "–";
-        [ObservableProperty] private string _batteryLevel = "–";
+        [ObservableProperty] private string _currentDraw = "—";
+        [ObservableProperty] private string _voltage = "—";
+        [ObservableProperty] private string _temperature = "—";
+        [ObservableProperty] private string _batteryLevel = "—";
         [ObservableProperty] private string _elapsedTime = "00:00:00";
         [ObservableProperty] private string _estimatedDischarged = "0.0 mAh";
 
         // Results
-        [ObservableProperty] private string _empiricalResult = "–";
-        [ObservableProperty] private string _ratedRatio = "–";
+        [ObservableProperty] private string _empiricalResult = "—";
+        [ObservableProperty] private string _ratedRatio = "—";
+        [ObservableProperty] private string _resultSummary = "";
         [ObservableProperty] private double _totalDischargedMah;
 
         public ObservableCollection<CapacityTestLogEntry> LogEntries { get; } = new();
@@ -62,17 +64,31 @@ namespace RMX3171ControlCentre.ViewModels
 
             if (StartPercentage <= StopPercentage)
             {
-                ErrorText = "Start percentage must be greater than stop percentage.";
+                ErrorText = "Start MUST be greater than Stop (e.g., 80 → 30).";
+                return;
+            }
+
+            var info = await _batteryService.GetBatteryInfoAsync();
+            if (info == null || !info.Level.HasValue)
+            {
+                ErrorText = "Cannot read battery data. Ensure device is connected.";
+                return;
+            }
+
+            if (info.StatusRaw != 3) // 3 = Discharging
+            {
+                ErrorText = "Test cannot start while the phone is charging.\nDisconnect USB power or use Wireless ADB.";
                 return;
             }
 
             LogEntries.Clear();
             ErrorText = "";
             IsRunning = true;
+            IsPaused = false;
             IsFinished = false;
             TotalDischargedMah = 0;
-            EstimatedDischarged = "0.0 mAh";
-            StatusText = "Initializing...";
+            EstimatedDischarged = "0 mAh";
+            StatusText = "Measuring discharge...";
             
             _cancellationTokenSource = new CancellationTokenSource();
             
@@ -82,7 +98,7 @@ namespace RMX3171ControlCentre.ViewModels
             }
             catch (TaskCanceledException)
             {
-                StatusText = "Stopped";
+                if (!IsFinished) StatusText = "Stopped";
             }
             catch (Exception ex)
             {
@@ -92,6 +108,7 @@ namespace RMX3171ControlCentre.ViewModels
             finally
             {
                 IsRunning = false;
+                IsPaused = false;
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
             }
@@ -103,22 +120,34 @@ namespace RMX3171ControlCentre.ViewModels
             _cancellationTokenSource?.Cancel();
         }
 
+        [RelayCommand]
+        private void ResumeTest()
+        {
+            if (IsPaused)
+            {
+                IsPaused = false;
+                StatusText = "Measuring discharge...";
+            }
+        }
+
         private async Task RunTelemetryLoopAsync(CancellationToken token)
         {
             var sw = Stopwatch.StartNew();
             DateTime lastTime = DateTime.UtcNow;
             
-            BatteryInfo? prevInfo = null;
-
             while (!token.IsCancellationRequested)
             {
                 var info = await _batteryService.GetBatteryInfoAsync();
                 var now = DateTime.UtcNow;
                 
-                // Update UI bindings
                 UpdateTelemetryUi(info, sw.Elapsed);
 
-                if (info.Level.HasValue)
+                if (info == null || !info.Level.HasValue)
+                {
+                    IsPaused = true;
+                    StatusText = "PAUSED — CONNECTION LOST";
+                }
+                else
                 {
                     if (info.Level.Value > StartPercentage)
                     {
@@ -127,34 +156,29 @@ namespace RMX3171ControlCentre.ViewModels
                     else if (info.Level.Value <= StopPercentage)
                     {
                         StatusText = "Target percentage reached. Completing test...";
-                        CompleteTest(info);
+                        CompleteTest(sw.Elapsed);
                         break;
                     }
-                    else
+                    else if (!IsPaused)
                     {
                         StatusText = "Measuring discharge...";
                         
-                        // Ensure we are discharging
-                        if (info.StatusRaw != 3) // 3 = BATTERY_STATUS_DISCHARGING
+                        if (info.StatusRaw != 3) // Charging or Full
                         {
-                            StatusText = "PAUSED - Device is charging or not discharging.";
+                            IsPaused = true;
+                            StatusText = "PAUSED — PHONE IS CHARGING";
                         }
-                        else if (prevInfo != null && info.OppoBatteryCurrent.HasValue)
+                        else if (info.OppoBatteryCurrent.HasValue)
                         {
-                            // Calculate dt in hours
                             double dtHours = (now - lastTime).TotalHours;
-                            
-                            // OPPO Battery Current: negative when charging, positive when discharging
-                            // (or vice-versa depending on the device, we assume absolute value for discharge to be safe 
-                            //  since we explicitly checked StatusRaw == 3)
                             int currentMa = Math.Abs(info.OppoBatteryCurrent.Value);
                             
                             double addedMah = currentMa * dtHours;
                             TotalDischargedMah += addedMah;
-                            EstimatedDischarged = $"{TotalDischargedMah:F1} mAh";
+                            EstimatedDischarged = $"{Math.Round(TotalDischargedMah, 0)} mAh";
 
-                            // Log every ~30 seconds or so (to avoid filling memory, we do it every 10 loops)
-                            if (sw.ElapsedMilliseconds % 15000 < 5000)
+                            // Log ~every 15 seconds
+                            if (sw.ElapsedMilliseconds % 15000 < 3000)
                             {
                                 AddLogEntry(info, currentMa, TotalDischargedMah);
                             }
@@ -162,28 +186,26 @@ namespace RMX3171ControlCentre.ViewModels
                     }
                 }
 
-                prevInfo = info;
                 lastTime = now;
-
                 await Task.Delay(3000, token);
             }
         }
 
         private void UpdateTelemetryUi(BatteryInfo info, TimeSpan elapsed)
         {
-            BatteryLevel = info.Level.HasValue ? $"{info.Level}%" : "Unknown";
-            Temperature = info.TemperatureCelsius.HasValue ? $"{info.TemperatureCelsius:F1} °C" : "Unknown";
-            Voltage = info.VoltageVolts.HasValue ? $"{info.VoltageVolts:F3} V" : "Unknown";
-            
-            if (info.OppoBatteryCurrent.HasValue)
+            if (info == null || !info.Level.HasValue)
             {
-                CurrentDraw = $"{info.OppoBatteryCurrent.Value} mA";
-            }
-            else
-            {
+                BatteryLevel = "Unknown";
+                Temperature = "Unknown";
+                Voltage = "Unknown";
                 CurrentDraw = "Unknown";
+                return;
             }
 
+            BatteryLevel = $"{info.Level}%";
+            Temperature = info.TemperatureCelsius.HasValue ? $"{info.TemperatureCelsius:F1} °C" : "Unknown";
+            Voltage = info.VoltageVolts.HasValue ? $"{info.VoltageVolts:F2} V" : "Unknown";
+            CurrentDraw = info.OppoBatteryCurrent.HasValue ? $"{info.OppoBatteryCurrent.Value} mA" : "Unknown";
             ElapsedTime = elapsed.ToString(@"hh\:mm\:ss");
         }
 
@@ -195,34 +217,31 @@ namespace RMX3171ControlCentre.ViewModels
                 {
                     Time = DateTime.Now.ToString("HH:mm:ss"),
                     Status = info.StatusLabel,
-                    Level = info.Level ?? 0,
-                    CurrentMa = currentMa,
-                    VoltageV = info.VoltageVolts ?? 0,
-                    TempC = info.TemperatureCelsius ?? 0,
-                    AccumulatedMah = Math.Round(accumMah, 1)
+                    Battery = $"{info.Level}%",
+                    Current = $"{currentMa} mA",
+                    Voltage = info.VoltageVolts.HasValue ? $"{info.VoltageVolts:F2} V" : "-",
+                    Temp = info.TemperatureCelsius.HasValue ? $"{info.TemperatureCelsius:F1}°C" : "-",
+                    Accumulated = $"{Math.Round(accumMah, 0)} mAh"
                 });
             });
         }
 
-        private void CompleteTest(BatteryInfo info)
+        private void CompleteTest(TimeSpan elapsed)
         {
             IsFinished = true;
+            IsRunning = false;
             
-            // Empirical calculation
             int percentagePoints = StartPercentage - StopPercentage;
             if (percentagePoints > 0)
             {
                 double estimatedTotalCapacity = (TotalDischargedMah / percentagePoints) * 100.0;
                 EmpiricalResult = $"~{Math.Round(estimatedTotalCapacity, 0):N0} mAh";
                 
-                double rated = 6000.0; // RMX3171 rated capacity
+                double rated = 6000.0;
                 double ratio = (estimatedTotalCapacity / rated) * 100.0;
-                RatedRatio = $"{ratio:F1}%";
-            }
-            else
-            {
-                EmpiricalResult = "Invalid range";
-                RatedRatio = "–";
+                RatedRatio = $"{Math.Round(ratio, 0)}%";
+
+                ResultSummary = $"CAPACITY TEST RESULT\n\nStart:\n{StartPercentage}%\n\nStop:\n{StopPercentage}%\n\nMeasured discharge:\n{Math.Round(TotalDischargedMah, 0)} mAh\n\nEstimated full capacity:\n{EmpiricalResult}\n\nRated capacity:\n6000 mAh\n\nApprox. rated-capacity ratio:\n{RatedRatio}\n\nElapsed:\n{elapsed.Hours}h {elapsed.Minutes}m\n\nResults can vary with workload, temperature, battery age, measurement accuracy, and test conditions.";
             }
         }
     }
