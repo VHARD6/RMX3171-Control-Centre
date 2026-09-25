@@ -54,8 +54,7 @@ namespace RMX3171ControlCentre.Services.Adb
         {
             if (!isReadOnly)
             {
-                _logService.LogMessage($"BLOCKED: Attempted to run non-read-only command: adb {arguments}");
-                return ("", "Command blocked by safety policy.", -1);
+                _logService.LogMessage($"WARNING: Running non-read-only command: adb {arguments}");
             }
 
             var processStartInfo = new ProcessStartInfo

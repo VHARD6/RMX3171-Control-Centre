@@ -26,6 +26,9 @@
         <DataTemplate DataType="{x:Type viewmodels:LogsViewModel}">
             <views:LogsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:MemoryManagerViewModel}">
+            <views:MemoryManagerView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -49,6 +52,7 @@
                 <Button Content="Storage" Command="{Binding NavigateCommand}" CommandParameter="Storage" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Battery" Command="{Binding NavigateCommand}" CommandParameter="Battery" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Discharge Test" Command="{Binding NavigateCommand}" CommandParameter="Capacity" Margin="10,5" HorizontalAlignment="Stretch"/>
+                <Button Content="Memory" Command="{Binding NavigateCommand}" CommandParameter="Memory" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Logs" Command="{Binding NavigateCommand}" CommandParameter="Logs" Margin="10,5" HorizontalAlignment="Stretch"/>
             </StackPanel>
         </Border>

@@ -26,6 +26,7 @@ namespace RMX3171ControlCentre.ViewModels
         public StorageViewModel StorageVM { get; }
         public BatteryViewModel BatteryVM { get; }
         public CapacityTesterViewModel CapacityTesterVM { get; }
+        public MemoryManagerViewModel MemoryManagerVM { get; }
         public LogsViewModel LogsVM { get; }
 
         public MainViewModel(
@@ -35,6 +36,7 @@ namespace RMX3171ControlCentre.ViewModels
             StorageViewModel storageVM,
             BatteryViewModel batteryVM,
             CapacityTesterViewModel capacityTesterVM,
+            MemoryManagerViewModel memoryManagerVM,
             LogsViewModel logsVM)
         {
             _deviceService = deviceService;
@@ -43,6 +45,7 @@ namespace RMX3171ControlCentre.ViewModels
             StorageVM = storageVM;
             BatteryVM = batteryVM;
             CapacityTesterVM = capacityTesterVM;
+            MemoryManagerVM = memoryManagerVM;
             LogsVM = logsVM;
 
             CurrentViewModel = DashboardVM;
@@ -65,6 +68,7 @@ namespace RMX3171ControlCentre.ViewModels
                 "Storage" => StorageVM,
                 "Battery" => BatteryVM,
                 "Capacity" => CapacityTesterVM,
+                "Memory" => MemoryManagerVM,
                 "Logs" => LogsVM,
                 _ => DashboardVM
             };

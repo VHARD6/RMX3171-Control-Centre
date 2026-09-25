@@ -25,6 +25,7 @@ namespace RMX3171ControlCentre
             services.AddSingleton<IAdbService, AdbService>();
             services.AddSingleton<IDeviceService, DeviceService>();
             services.AddSingleton<IBatteryService, BatteryService>();
+            services.AddSingleton<IMemoryService, MemoryService>();
 
             // ViewModels
             services.AddTransient<MainViewModel>();
@@ -34,6 +35,7 @@ namespace RMX3171ControlCentre
             services.AddTransient<BatteryViewModel>();
             services.AddTransient<LogsViewModel>();
             services.AddTransient<CapacityTesterViewModel>();
+            services.AddTransient<MemoryManagerViewModel>();
 
             // Views
             services.AddTransient<MainWindow>();
