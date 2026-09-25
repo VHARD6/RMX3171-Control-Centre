@@ -78,6 +78,7 @@ namespace RMX3171ControlCentre.ViewModels
             {
                 ConnectionState.CONNECTED_USB => "CONNECTED — USB",
                 ConnectionState.CONNECTED_WIFI => "CONNECTED — Wi-Fi",
+                ConnectionState.CONNECTED_UNKNOWN => "CONNECTED",
                 ConnectionState.UNAUTHORIZED => "UNAUTHORIZED",
                 ConnectionState.OFFLINE => "OFFLINE",
                 ConnectionState.NO_DEVICE => "NO DEVICE",
@@ -88,6 +89,7 @@ namespace RMX3171ControlCentre.ViewModels
             {
                 ConnectionState.CONNECTED_USB => "LimeGreen",
                 ConnectionState.CONNECTED_WIFI => "Cyan",
+                ConnectionState.CONNECTED_UNKNOWN => "LimeGreen",
                 ConnectionState.UNAUTHORIZED => "Orange",
                 ConnectionState.OFFLINE => "Red",
                 ConnectionState.NO_DEVICE => "Gray",

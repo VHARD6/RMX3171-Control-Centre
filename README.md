@@ -16,7 +16,7 @@ A Windows desktop control centre for Android devices (specifically tailored for 
 
 This application is designed with a **read-only-first** philosophy. Diagnostic features use ADB to read information from the device. Destructive operations such as flashing, factory reset, bootloader unlocking, or system modification are **not performed automatically**. 
 
-*Note: The empirical battery capacity test is an ESTIMATE generated from numerical integration of the `current_now` readings and is not equivalent to an official battery SOH (State of Health) measurement from the manufacturer.*
+*Note: The empirical battery capacity test calculates integrated discharged capacity from primary `current_now` readings (sampled at 1 mA reported resolution) and cross-checks against the Android charge counter. It produces an empirical estimated full capacity and approximate ratio to rated 6,000 mAh under test conditions, and is not an official battery health or State of Health (SOH) measurement.*
 
 ## Requirements
 
@@ -52,4 +52,4 @@ This application is designed with a **read-only-first** philosophy. Diagnostic f
 4. **Launch the application:** The dashboard will automatically reflect the connection status.
 5. **Refresh device information:** Navigate to the Device Info or Battery tabs.
 6. **Use battery diagnostics:** View real-time properties from your device's power_supply subsystem.
-7. **Capacity Testing:** To use the Empirical Discharge Capacity Tester, establish a wireless ADB connection (`adb tcpip 5555`, then `adb connect <IP>:5555`), unplug the USB cable so the phone actually discharges, and start the test from the sidebar.
+7. **Capacity Testing:** To perform an empirical discharge capacity test, establish a wireless ADB connection using the built-in Wireless ADB dashboard or manual pairing, unplug the USB cable so the device is actively discharging, and select a sufficiently wide test range (e.g. 80% → 30%) to minimize discrete integer percentage quantization uncertainty.

@@ -19,6 +19,7 @@ namespace RMX3171ControlCentre.Services.Adb
         ObservableCollection<LogEntry> Logs { get; }
         void LogCommand(string command, string output, string error, int exitCode, bool isReadOnly = true);
         void LogMessage(string message);
+        void LogDebug(string message);
     }
 
     public class LogService : ILogService
@@ -46,9 +47,14 @@ namespace RMX3171ControlCentre.Services.Adb
                 IsReadOnly = isReadOnly
             };
 
-            // Update UI on dispatcher if needed, but since it's an observable collection bound to UI, 
-            // WPF CommunityToolkit typically handles this if done correctly, or we invoke.
-            System.Windows.Application.Current.Dispatcher.Invoke(() => Logs.Add(entry));
+            if (System.Windows.Application.Current?.Dispatcher != null)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() => Logs.Add(entry));
+            }
+            else
+            {
+                Logs.Add(entry);
+            }
             
             WriteToFile($"[{entry.Timestamp:HH:mm:ss}] CMD: {command} | EXIT: {exitCode} | OUT: {output} | ERR: {error}");
         }
@@ -63,8 +69,21 @@ namespace RMX3171ControlCentre.Services.Adb
                 IsReadOnly = true
             };
             
-            System.Windows.Application.Current.Dispatcher.Invoke(() => Logs.Add(entry));
+            if (System.Windows.Application.Current?.Dispatcher != null)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() => Logs.Add(entry));
+            }
+            else
+            {
+                Logs.Add(entry);
+            }
+            
             WriteToFile($"[{entry.Timestamp:HH:mm:ss}] MSG: {message}");
+        }
+
+        public void LogDebug(string message)
+        {
+            WriteToFile($"[{DateTime.Now:HH:mm:ss}] DEBUG:\n{message}");
         }
 
         private void WriteToFile(string text)

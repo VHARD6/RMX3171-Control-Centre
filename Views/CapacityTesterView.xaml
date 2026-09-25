@@ -9,10 +9,16 @@
                 <!-- Main Info Card -->
                 <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch">
                     <StackPanel>
-                        <TextBlock Text="This measures battery current during discharge and estimates how much charge the battery can deliver. It is an empirical estimate, not an official battery-health measurement." 
-                                   TextWrapping="Wrap" Foreground="#FFCCCCCC" Margin="0,0,0,15" FontSize="13"/>
+                        <TextBlock Text="This measures battery current during discharge (primary telemetry at 1 mA reported resolution) and cross-checks against Android's charge counter (secondary telemetry) to estimate delivered capacity. It is an empirical estimate, not an official battery-health measurement." 
+                                   TextWrapping="Wrap" Foreground="#FFCCCCCC" Margin="0,0,0,12" FontSize="13"/>
                         
-                        <Grid Margin="0,0,0,20">
+                        <!-- Recommendation Banner -->
+                        <Border Background="#FF1E293B" BorderBrush="#FF334155" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,15">
+                            <TextBlock Text="💡 Test Range Recommendation: Integer battery percentage is quantized in discrete steps. Testing a narrow interval (e.g. 40% → 35%) carries substantial boundary uncertainty (up to ±20%), whereas testing a wider interval (such as 80% → 30%) drops boundary uncertainty to ~2%. We recommend a sufficiently wide discharge range (e.g. 80% → 30%) for reliable empirical capacity estimates."
+                                       TextWrapping="Wrap" Foreground="#FF94A3B8" FontSize="12"/>
+                        </Border>
+
+                        <Grid Margin="0,0,0,15">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
                                 <ColumnDefinition Width="150"/>
@@ -28,6 +34,14 @@
                                 <TextBox Text="{Binding StopPercentage, UpdateSourceTrigger=PropertyChanged}" Width="60" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </Grid>
+
+                        <!-- Optional Transition Gating -->
+                        <StackPanel Margin="0,0,0,15">
+                            <CheckBox IsChecked="{Binding UseTransitionGating}" Content="Wait for displayed percentage transition before starting measurement"
+                                      Foreground="White" FontSize="12" Margin="0,0,0,4"/>
+                            <TextBlock Text="When checked, the test arms and waits until the battery transitions down into the start boundary before integrating current. Note: This provides a consistent displayed boundary, but does not guarantee a physical 40.0% SOC."
+                                       TextWrapping="Wrap" Foreground="#FF777777" FontSize="11" Margin="20,0,0,0"/>
+                        </StackPanel>
                         
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                             <Button Content="Start Test" Command="{Binding StartTestCommand}" Padding="15,8" Margin="0,0,10,0" Background="#FF28A745" Foreground="White" FontWeight="Bold">
@@ -71,7 +85,7 @@
                         </StackPanel>
                         
                         <TextBlock Text="{Binding StatusText}" Foreground="Orange" FontWeight="SemiBold" FontSize="14" Margin="0,5,0,0"/>
-                        <TextBlock Text="{Binding ErrorText}" Foreground="#FFFF6666" FontWeight="SemiBold" FontSize="14" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding ErrorText}" Foreground="#FFFF6666" FontWeight="SemiBold" FontSize="13" Margin="0,5,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -85,7 +99,7 @@
                     <!-- Left: Telemetry Grid -->
                     <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,10,0">
                         <StackPanel>
-                            <TextBlock Text="LIVE TELEMETRY" FontSize="14" FontWeight="Bold" Foreground="#FF007ACC" Margin="0,0,0,15"/>
+                            <TextBlock Text="LIVE TELEMETRY (Primary &amp; Secondary)" FontSize="14" FontWeight="Bold" Foreground="#FF007ACC" Margin="0,0,0,15"/>
                             
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -96,36 +110,58 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
-                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,15">
-                                    <TextBlock Text="Current" Foreground="#FF888888" FontSize="12"/>
-                                    <TextBlock Text="{Binding CurrentDraw}" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                                <!-- Row 0: Current & Voltage -->
+                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                    <TextBlock Text="Current (Primary)" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding CurrentDraw}" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,15">
-                                    <TextBlock Text="Voltage" Foreground="#FF888888" FontSize="12"/>
-                                    <TextBlock Text="{Binding Voltage}" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,12">
+                                    <TextBlock Text="Voltage" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding Voltage}" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,15">
-                                    <TextBlock Text="Temperature" Foreground="#FF888888" FontSize="12"/>
-                                    <TextBlock Text="{Binding Temperature}" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                                <!-- Row 1: Integrated Discharge & Charge Counter Delta -->
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
+                                    <TextBlock Text="Integrated Discharged Capacity (Primary)" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding EstimatedDischarged}" Foreground="LimeGreen" FontSize="16" FontWeight="Bold"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,15">
-                                    <TextBlock Text="Battery" Foreground="#FF888888" FontSize="12"/>
-                                    <TextBlock Text="{Binding BatteryLevel}" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,12">
+                                    <TextBlock Text="Charge-Counter Cross-Check Delta (Secondary)" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding ChargeCounterDeltaText}" Foreground="Cyan" FontSize="16" FontWeight="Bold"/>
+                                </StackPanel>
+
+                                <!-- Row 2: Telemetry Difference & Battery Level -->
+                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,12">
+                                    <TextBlock Text="Cross-Check Difference" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding TelemetryDifferenceText}" Foreground="#FFDDDDDD" FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
+                                    <TextBlock Text="Displayed SOC" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding BatteryLevel}" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="2" Grid.Column="0">
-                                    <TextBlock Text="Estimated discharged" Foreground="#FF888888" FontSize="12"/>
-                                    <TextBlock Text="{Binding EstimatedDischarged}" Foreground="LimeGreen" FontSize="18" FontWeight="SemiBold"/>
+                                <!-- Row 3: Temperature & Charge Counter -->
+                                <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,12">
+                                    <TextBlock Text="Temperature" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding Temperature}" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="2" Grid.Column="1">
-                                    <TextBlock Text="Elapsed" Foreground="#FF888888" FontSize="12"/>
-                                    <TextBlock Text="{Binding ElapsedTime}" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                                <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,12">
+                                    <TextBlock Text="Charge Counter (Current)" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding ChargeCounter}" Foreground="#FFCCCCCC" FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+
+                                <!-- Row 4: Elapsed Time -->
+                                <StackPanel Grid.Row="4" Grid.Column="0">
+                                    <TextBlock Text="Elapsed Time" Foreground="#FF888888" FontSize="11"/>
+                                    <TextBlock Text="{Binding ElapsedTime}" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -145,7 +181,7 @@
                         </Border.Style>
                         <StackPanel>
                             <TextBlock Text="FINAL RESULT" FontSize="14" FontWeight="Bold" Foreground="LimeGreen" Margin="0,0,0,15"/>
-                            <TextBlock Text="{Binding ResultSummary}" Foreground="White" TextWrapping="Wrap" FontSize="13"/>
+                            <TextBlock Text="{Binding ResultSummary}" Foreground="White" TextWrapping="Wrap" FontSize="12" FontFamily="Consolas"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -156,16 +192,17 @@
                         <TextBlock Text="TELEMETRY LOG (Samples every ~15s)" FontSize="14" FontWeight="Bold" Foreground="#FF007ACC" Margin="0,0,0,10"/>
                         <DataGrid ItemsSource="{Binding LogEntries}" AutoGenerateColumns="False"
                                   Background="#FF1E1E1E" RowBackground="#FF252525" AlternatingRowBackground="#FF2A2A2A"
-                                  Foreground="White" MaxHeight="300"
+                                  Foreground="White" MaxHeight="280"
                                   HeadersVisibility="Column" IsReadOnly="True" GridLinesVisibility="Horizontal">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}"/>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}"/>
-                                <DataGridTextColumn Header="Battery" Binding="{Binding Battery}"/>
+                                <DataGridTextColumn Header="SOC %" Binding="{Binding Battery}"/>
                                 <DataGridTextColumn Header="Current" Binding="{Binding Current}"/>
                                 <DataGridTextColumn Header="Voltage" Binding="{Binding Voltage}"/>
                                 <DataGridTextColumn Header="Temp" Binding="{Binding Temp}"/>
-                                <DataGridTextColumn Header="Accumulated" Binding="{Binding Accumulated}"/>
+                                <DataGridTextColumn Header="Integrated (mAh)" Binding="{Binding IntegratedMah}"/>
+                                <DataGridTextColumn Header="CC Cross-Check" Binding="{Binding ChargeCounterDelta}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>
