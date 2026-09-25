@@ -6,12 +6,17 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RMX3171ControlCentre.Models;
 using RMX3171ControlCentre.Services.Device;
+using RMX3171ControlCentre.Services.Security;
+using RMX3171ControlCentre.Services.UI;
 
 namespace RMX3171ControlCentre.ViewModels
 {
     public partial class MemoryManagerViewModel : ViewModelBase
     {
         private readonly IMemoryService _memoryService;
+        private readonly IDialogService _dialogService;
+        private readonly IAppModeService _appModeService;
+        private readonly IAuditService _auditService;
 
         [ObservableProperty]
         private MemoryInfo _currentMemoryInfo = new MemoryInfo();
@@ -22,9 +27,16 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty]
         private bool _isRefreshing;
 
-        public MemoryManagerViewModel(IMemoryService memoryService)
+        public MemoryManagerViewModel(
+            IMemoryService memoryService,
+            IDialogService dialogService,
+            IAppModeService appModeService,
+            IAuditService auditService)
         {
             _memoryService = memoryService;
+            _dialogService = dialogService;
+            _appModeService = appModeService;
+            _auditService = auditService;
         }
 
         [RelayCommand]
@@ -54,19 +66,36 @@ namespace RMX3171ControlCentre.ViewModels
         {
             if (app == null || app.IsProtected || IsRefreshing) return;
 
-            var result = MessageBox.Show($"Are you sure you want to force stop {app.PackageName}?\n\nThis will terminate the application and its background services.", "Confirm Force Stop", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (!_appModeService.IsModificationAllowed(RiskLevel.Modify))
+            {
+                _dialogService.ShowMessage("Access Denied", "Force Stop is a MODIFY operation.\nPlease enter Advanced Mode to perform this action.");
+                return;
+            }
+
+            string adbCommand = $"adb shell am force-stop {app.PackageName}";
+            bool confirm = await _dialogService.ShowModificationPreviewAsync(
+                "Force Stop Application",
+                app.PackageName,
+                "Running in background/foreground",
+                "Force Stopped",
+                adbCommand,
+                "MODIFY",
+                "This will forcefully terminate the application and its background services. Unsaved data in the app may be lost."
+            );
             
-            if (result == MessageBoxResult.Yes)
+            if (confirm)
             {
                 bool success = await _memoryService.ForceStopAppAsync(app.PackageName);
+                _auditService.LogModification("Force Stop", app.PackageName, "Running", "Stopped", adbCommand, success);
+
                 if (success)
                 {
-                    MessageBox.Show($"Successfully closed {app.PackageName}. RAM released.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    _dialogService.ShowMessage("Success", $"Successfully closed {app.PackageName}. RAM released.");
                     await RefreshAsync();
                 }
                 else
                 {
-                    MessageBox.Show($"Failed to force stop {app.PackageName}.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _dialogService.ShowMessage("Error", $"Failed to force stop {app.PackageName}.");
                 }
             }
         }

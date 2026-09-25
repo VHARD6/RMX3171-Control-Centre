@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using RMX3171ControlCentre.Services.Security;
 
 namespace RMX3171ControlCentre.Services.Adb
 {
@@ -16,11 +17,13 @@ namespace RMX3171ControlCentre.Services.Adb
     public class AdbService : IAdbService
     {
         private readonly ILogService _logService;
+        private readonly Security.IAppModeService _appModeService;
         private string _adbPath = "adb"; // default to system path
 
-        public AdbService(ILogService logService)
+        public AdbService(ILogService logService, Security.IAppModeService appModeService)
         {
             _logService = logService;
+            _appModeService = appModeService;
             CheckBundledAdb();
         }
 
@@ -52,9 +55,14 @@ namespace RMX3171ControlCentre.Services.Adb
 
         public async Task<(string Output, string Error, int ExitCode)> ExecuteCommandAsync(string arguments, bool isReadOnly = true, CancellationToken cancellationToken = default)
         {
+            if (!isReadOnly && _appModeService.CurrentMode != Models.AppMode.Advanced)
+            {
+                _logService.LogMessage($"BLOCKED: Attempted to run non-read-only command in ReadOnly mode: adb {arguments}");
+                return ("", "Command blocked by safety policy. Advanced Mode required.", -1);
+            }
             if (!isReadOnly)
             {
-                _logService.LogMessage($"WARNING: Running non-read-only command: adb {arguments}");
+                _logService.LogMessage($"WARNING: Running non-read-only command in Advanced Mode: adb {arguments}");
             }
 
             var processStartInfo = new ProcessStartInfo

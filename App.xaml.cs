@@ -4,6 +4,8 @@ using RMX3171ControlCentre.Services.Adb;
 using RMX3171ControlCentre.Services.Device;
 using RMX3171ControlCentre.ViewModels;
 using RMX3171ControlCentre.Views;
+using RMX3171ControlCentre.Services.Security;
+using RMX3171ControlCentre.Services.UI;
 
 namespace RMX3171ControlCentre
 {
@@ -22,10 +24,14 @@ namespace RMX3171ControlCentre
         {
             // Services
             services.AddSingleton<ILogService, LogService>();
+            services.AddSingleton<IDialogService, DialogService>();
+            services.AddSingleton<IAuditService, AuditService>();
+            services.AddSingleton<IAppModeService, AppModeService>();
             services.AddSingleton<IAdbService, AdbService>();
             services.AddSingleton<IDeviceService, DeviceService>();
             services.AddSingleton<IBatteryService, BatteryService>();
             services.AddSingleton<IMemoryService, MemoryService>();
+            services.AddSingleton<IAppManagerService, AppManagerService>();
 
             // ViewModels
             services.AddTransient<MainViewModel>();
@@ -36,6 +42,7 @@ namespace RMX3171ControlCentre
             services.AddTransient<LogsViewModel>();
             services.AddTransient<CapacityTesterViewModel>();
             services.AddTransient<MemoryManagerViewModel>();
+            services.AddTransient<AppManagerViewModel>();
 
             // Views
             services.AddTransient<MainWindow>();

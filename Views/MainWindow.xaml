@@ -29,6 +29,9 @@
         <DataTemplate DataType="{x:Type viewmodels:MemoryManagerViewModel}">
             <views:MemoryManagerView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:AppManagerViewModel}">
+            <views:AppManagerView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -42,9 +45,13 @@
             <StackPanel Margin="0,20,0,0">
                 <TextBlock Text="RMX3171 Control" Foreground="White" FontSize="18" FontWeight="Bold" Margin="15,0,0,20"/>
                 
-                <StackPanel Orientation="Horizontal" Margin="15,0,0,20">
+                <StackPanel Orientation="Horizontal" Margin="15,0,0,10">
                     <Ellipse Width="12" Height="12" Fill="{Binding ConnectionColor}" Margin="0,0,10,0"/>
                     <TextBlock Text="{Binding ConnectionStatus}" Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="15,0,0,20">
+                    <TextBlock Text="{Binding ModeText}" Foreground="{Binding ModeColor}" FontWeight="Bold" VerticalAlignment="Center"/>
                 </StackPanel>
                 
                 <Button Content="Dashboard" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Margin="10,5" HorizontalAlignment="Stretch"/>
@@ -52,8 +59,26 @@
                 <Button Content="Storage" Command="{Binding NavigateCommand}" CommandParameter="Storage" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Battery" Command="{Binding NavigateCommand}" CommandParameter="Battery" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Discharge Test" Command="{Binding NavigateCommand}" CommandParameter="Capacity" Margin="10,5" HorizontalAlignment="Stretch"/>
-                <Button Content="Memory" Command="{Binding NavigateCommand}" CommandParameter="Memory" Margin="10,5" HorizontalAlignment="Stretch"/>
+                <Button Content="Task Manager" Command="{Binding NavigateCommand}" CommandParameter="Memory" Margin="10,5" HorizontalAlignment="Stretch"/>
+                <Button Content="App Manager" Command="{Binding NavigateCommand}" CommandParameter="AppManager" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Logs" Command="{Binding NavigateCommand}" CommandParameter="Logs" Margin="10,5" HorizontalAlignment="Stretch"/>
+                
+                <Border BorderBrush="#FF3F3F46" BorderThickness="0,1,0,0" Margin="10,20,10,10" />
+                
+                <Button Command="{Binding ToggleModeCommand}" Margin="10,5" HorizontalAlignment="Stretch" Background="#FF333333">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Setter Property="Content" Value="Enter Advanced Mode" />
+                            <Setter Property="Foreground" Value="Orange" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAdvancedMode}" Value="True">
+                                    <Setter Property="Content" Value="Exit Advanced Mode" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </StackPanel>
         </Border>
 
