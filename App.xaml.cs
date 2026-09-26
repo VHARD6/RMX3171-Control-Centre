@@ -33,6 +33,7 @@ namespace RMX3171ControlCentre
             services.AddSingleton<IBatteryService, BatteryService>();
             services.AddSingleton<IMemoryService, MemoryService>();
             services.AddSingleton<IAppManagerService, AppManagerService>();
+            services.AddSingleton<ICleanerConfigService, CleanerConfigService>();
 
             // ViewModels
             services.AddTransient<MainViewModel>();

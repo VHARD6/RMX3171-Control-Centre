@@ -58,7 +58,8 @@ namespace RMX3171ControlCentre.Services.Device
             }
 
             // Optional: get memory usage from memory service
-            var consumers = await _memoryService.GetTopConsumersAsync();
+            var memQuery = await _memoryService.GetProcessesAsync();
+            var consumers = memQuery.UserApps.Concat(memQuery.SystemProcesses).ToList();
 
             var allLines = allResult.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in allLines)
@@ -72,34 +73,25 @@ namespace RMX3171ControlCentre.Services.Device
                     string pkg = line.Substring(eqIndex + 1);
                     
                     bool isSys = sysPackages.Contains(pkg);
-                    bool isProtected = isSys && IsProtectedCore(pkg); // Mark core system as protected
+                    var risk = RMX3171ControlCentre.Services.Security.PackageRiskEvaluator.Evaluate(pkg, isSys);
+                    bool isProtected = risk == PackageRiskLevel.PROTECTED || risk == PackageRiskLevel.SYSTEM || risk == PackageRiskLevel.UNKNOWN;
 
                     var memInfo = consumers.FirstOrDefault(c => c.PackageName == pkg);
 
                     apps.Add(new AppPackageInfo
                     {
                         PackageName = pkg,
-                        AppName = pkg,
+                        AppName = pkg, // Ideally we would resolve AppName via aapt, but pkg name is fallback
                         IsSystem = isSys,
                         IsProtected = isProtected,
                         IsEnabled = !disabledPackages.Contains(pkg),
-                        RamMb = memInfo?.RamMb ?? 0
+                        RamMb = memInfo?.RamMb ?? 0,
+                        RiskLevel = risk
                     });
                 }
             }
 
             return apps.OrderBy(a => a.PackageName).ToList();
-        }
-
-        private bool IsProtectedCore(string packageName)
-        {
-            var protectedStarts = new[] { "com.android.", "com.coloros.", "com.oplus.", "com.realme.", "android" };
-            foreach (var start in protectedStarts)
-            {
-                if (packageName.StartsWith(start, StringComparison.OrdinalIgnoreCase)) return true;
-            }
-            if (packageName.Contains("google")) return true; // generic protection for google core apps
-            return false;
         }
 
         public async Task<bool> DisableAppAsync(string packageName)
@@ -116,7 +108,7 @@ namespace RMX3171ControlCentre.Services.Device
 
         public async Task<bool> UninstallAppForUserAsync(string packageName)
         {
-            var result = await _adbService.ExecuteCommandAsync($"shell pm uninstall -k --user 0 {packageName}", isReadOnly: false);
+            var result = await _adbService.ExecuteCommandAsync($"shell pm uninstall --user 0 {packageName}", isReadOnly: false);
             return result.ExitCode == 0;
         }
     }

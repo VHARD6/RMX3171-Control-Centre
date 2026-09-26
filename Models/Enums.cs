@@ -12,4 +12,13 @@ namespace RMX3171ControlCentre.Models
         Modify,
         HighRisk
     }
+
+    public enum PackageRiskLevel
+    {
+        SAFE_USER,
+        USER,
+        SYSTEM,
+        PROTECTED,
+        UNKNOWN
+    }
 }

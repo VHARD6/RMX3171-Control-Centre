@@ -141,7 +141,7 @@ namespace RMX3171ControlCentre.ViewModels
             };
 
             // Lazy load expensive pages if empty
-            if (viewName == "AppManager" && AppManagerVM.Packages.Count == 0)
+            if (viewName == "AppManager" && AppManagerVM.FilteredPackages.Count == 0)
             {
                 _ = AppManagerVM.RefreshCommand.ExecuteAsync(null);
             }

@@ -1,15 +1,6 @@
 <UserControl x:Class="RMX3171ControlCentre.Views.MemoryManagerView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
-             d:DesignHeight="700" d:DesignWidth="850">
-
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-    </UserControl.Resources>
-
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -18,141 +9,341 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Top Header & Actions -->
+        <!-- Header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-            <TextBlock Text="Memory &amp; Tasks" Foreground="White" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
-            <Button Content="Refresh Now" Command="{Binding RefreshCommand}" Margin="20,0,0,0" Padding="15,6" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center" IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
-            <TextBlock Text="Refreshing..." Foreground="Orange" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <TextBlock Text="{Binding LastUpdatedText}" Foreground="Gray" VerticalAlignment="Center" Margin="10,0,0,0"/>
+            <TextBlock Text="Memory Manager" Foreground="White" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button Content="Scan Memory" Command="{Binding RefreshCommand}" Margin="20,0,0,0" Padding="15,6"
+                    Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center"
+                    IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
+            <TextBlock Text="Scanning..." Foreground="Orange" VerticalAlignment="Center" Margin="10,0,0,0"
+                       Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <TextBlock Text="{Binding LastUpdatedText}" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
         </StackPanel>
 
-        <!-- Educational / Safety Banner -->
+        <!-- Educational Banner -->
         <Border Grid.Row="1" Background="#2A2A1A" BorderBrush="#8A7A20" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,15">
-            <TextBlock TextWrapping="Wrap" Foreground="#F0E68C" FontSize="13">
+            <TextBlock TextWrapping="Wrap" Foreground="#F0E68C" FontSize="12">
                 <Run FontWeight="Bold">Notice:</Run>
-                <Run>Android manages memory automatically. Closing apps can help when a specific application is misbehaving or consuming unusually high memory. Core system components and critical services are protected to prevent device instability.</Run>
+                <Run>Android uses RAM for apps, caching, and system services. Memory pressure and heavy background apps are better indicators than free RAM alone.</Run>
+                <LineBreak/>
+                <Run FontWeight="Bold">PSS (Proportional Set Size)</Run>
+                <Run>is used — it accounts for shared memory proportionally. Numbers shown are per-app estimates. They do not add up to exactly total RAM used.</Run>
             </TextBlock>
         </Border>
 
-        <!-- Memory Dashboard Cards -->
+        <!-- RAM Summary Cards -->
         <Grid Grid.Row="2" Margin="0,0,0,15">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Physical RAM -->
+            <!-- RAM -->
             <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Text="PHYSICAL RAM" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,8"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <TextBlock Text="{Binding CurrentMemoryInfo.UsedGB, StringFormat={}{0:F2}}" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                        <TextBlock Text=" GB used / " FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                        <TextBlock Text="{Binding CurrentMemoryInfo.TotalGB, StringFormat={}{0:F1}}" FontSize="14" FontWeight="Bold" Foreground="White" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                        <TextBlock Text=" GB" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="RAM USAGE" FontSize="12" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding CurrentMemoryInfo.UsedGB, StringFormat={}{0:F2}}" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                            <TextBlock Text=" / " FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                            <TextBlock Text="{Binding CurrentMemoryInfo.TotalGB, StringFormat={}{0:F1}}" FontSize="14" FontWeight="Bold" Foreground="White" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                            <TextBlock Text=" GB" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                        </StackPanel>
+                        <ProgressBar Value="{Binding CurrentMemoryInfo.UsedGB}" Maximum="{Binding CurrentMemoryInfo.TotalGB}"
+                                     Height="4" Margin="0,5,15,5" BorderThickness="0" Background="#333333" Foreground="#4EC9B0"/>
+                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" FontSize="12">
+                            <Run Text="Available: "/>
+                            <Run Text="{Binding CurrentMemoryInfo.AvailableGB, StringFormat={}{0:F2} GB}" FontWeight="Bold" Foreground="White"/>
+                            <Run Text="   Cached: "/>
+                            <Run Text="{Binding CurrentMemoryInfo.CachedGB, StringFormat={}{0:F2} GB}" FontWeight="Bold" Foreground="White"/>
+                        </TextBlock>
                     </StackPanel>
-                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Margin="0,4,0,0">
-                        <Run Text="Available: " />
-                        <Run Text="{Binding CurrentMemoryInfo.AvailableGB, StringFormat={}{0:F2}}" FontWeight="Bold" Foreground="White" />
-                        <Run Text=" GB  (Cached: " />
-                        <Run Text="{Binding CurrentMemoryInfo.CachedGB, StringFormat={}{0:F2}}" FontWeight="Bold" Foreground="White" />
-                        <Run Text=" GB)" />
-                    </TextBlock>
-                </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                        <TextBlock Text="USER APPS" FontSize="11" FontWeight="Bold" Foreground="#888888"/>
+                        <TextBlock Text="{Binding UserAppsTotalLabel}" FontSize="13" FontWeight="SemiBold" Foreground="#4EC9B0" Margin="0,2,0,8"/>
+                        <TextBlock Text="SYSTEM" FontSize="11" FontWeight="Bold" Foreground="#888888"/>
+                        <TextBlock Text="{Binding SystemTotalLabel}" FontSize="13" FontWeight="SemiBold" Foreground="#FF888888" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <!-- ZRAM / Swap -->
+            <!-- ZRAM -->
             <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="4,0,4,0">
                 <StackPanel>
-                    <TextBlock Text="ZRAM (SWAP COMPRESSION)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,8"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <TextBlock Text="{Binding CurrentMemoryInfo.ZramUsedGB, StringFormat={}{0:F2}}" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                        <TextBlock Text=" GB used / " FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                        <TextBlock Text="{Binding CurrentMemoryInfo.ZramTotalGB, StringFormat={}{0:F2}}" FontSize="14" FontWeight="Bold" Foreground="White" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
-                        <TextBlock Text=" GB" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    <TextBlock Text="ZRAM" FontSize="12" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,6"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding CurrentMemoryInfo.ZramUsedGB, StringFormat={}{0:F2}}" FontSize="20" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text=" / " FontSize="12" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding CurrentMemoryInfo.ZramTotalGB, StringFormat={}{0:F2}}" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                        <TextBlock Text=" GB" FontSize="12" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                     </StackPanel>
-                    <TextBlock Text="Compressed kernel memory pool" Foreground="{StaticResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0"/>
+                    <TextBlock Text="Compresses RAM pages. Not a problem." TextWrapping="Wrap" Foreground="{StaticResource SecondaryTextBrush}" FontSize="11" Margin="0,6,0,0"/>
                 </StackPanel>
             </Border>
 
             <!-- Memory Pressure -->
-            <Border Grid.Column="2" Style="{StaticResource CardStyle}" Margin="8,0,0,0">
+            <Border Grid.Column="2" Style="{StaticResource CardStyle}" Margin="4,0,4,0">
                 <StackPanel>
-                    <TextBlock Text="MEMORY PRESSURE" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding CurrentMemoryInfo.MemoryPressure}" FontSize="22" FontWeight="Bold" Foreground="#4EC9B0" Margin="0,0,0,5"/>
-                    <TextBlock Text="Real-time kernel state" Foreground="{StaticResource SecondaryTextBrush}" FontSize="12" Margin="0,4,0,0"/>
+                    <TextBlock Text="MEMORY PRESSURE" FontSize="12" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding CurrentMemoryInfo.MemoryPressure}" FontSize="20" FontWeight="Bold" Foreground="#4EC9B0"/>
+                    <TextBlock Text="From Android kernel status" Foreground="{StaticResource SecondaryTextBrush}" FontSize="11" Margin="0,6,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Cleanup History -->
+            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="8,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="LAST CLEANUP" FontSize="12" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding LastCleanupSummary}" Foreground="White" FontSize="11" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
         </Grid>
 
-        <!-- Top RAM Consumers Table -->
-        <Border Grid.Row="3" Style="{StaticResource CardStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                
-                <TextBlock Grid.Row="0" Text="TOP CONSUMING APPLICATIONS (> 10 MB)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,10"/>
-                
-                <DataGrid Grid.Row="1" ItemsSource="{Binding TopConsumers}" AutoGenerateColumns="False" 
-                          CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True"
-                          HeadersVisibility="Column" Background="Transparent" BorderThickness="0"
-                          RowBackground="Transparent" AlternatingRowBackground="#262629" GridLinesVisibility="None"
-                          Foreground="White">
-                    <DataGrid.Resources>
-                        <Style TargetType="DataGridColumnHeader">
-                            <Setter Property="Background" Value="#333337"/>
-                            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
-                            <Setter Property="Padding" Value="8,6"/>
-                            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-                            <Setter Property="BorderBrush" Value="#444448"/>
-                        </Style>
-                        <Style TargetType="DataGridCell">
-                            <Setter Property="Padding" Value="8,6"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="DataGridCell">
-                                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
-                                            <ContentPresenter VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </DataGrid.Resources>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="2*" />
-                        <DataGridTextColumn Header="RAM (MB)" Binding="{Binding RamMb, StringFormat={}{0:F1}}" Width="*" />
-                        <DataGridTemplateColumn Header="Action" Width="140">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="Close App" 
-                                            Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-                                            CommandParameter="{Binding}" 
-                                            Padding="10,3" Margin="2" Background="#C23934" Foreground="White" BorderThickness="0" Cursor="Hand">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsProtected}" Value="True">
-                                                        <Setter Property="Content" Value="Protected" />
-                                                        <Setter Property="Background" Value="#444448" />
-                                                        <Setter Property="Foreground" Value="#888888" />
-                                                        <Setter Property="IsEnabled" Value="False" />
-                                                        <Setter Property="Cursor" Value="Arrow" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
+        <!-- Tabs: User Apps | System Processes -->
+        <TabControl Grid.Row="3" Background="Transparent" BorderThickness="0">
+            <TabControl.Resources>
+                <Style TargetType="TabItem">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TabItem">
+                                <Border Name="Bd" Padding="14,8" Margin="0,0,8,0"
+                                        BorderThickness="0,0,0,2" BorderBrush="Transparent" Background="Transparent">
+                                    <ContentPresenter ContentSource="Header"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                        <Setter Property="TextElement.Foreground" Value="White"/>
+                                        <Setter Property="TextElement.FontWeight" Value="Bold"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="False">
+                                        <Setter Property="TextElement.Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TabControl.Resources>
+
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <!-- TAB 1 — USER APPS (Memory Cleaner)                                -->
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <TabItem Header="USER APPS — MEMORY CLEANER">
+                <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Toolbar -->
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Foreground="{StaticResource SecondaryTextBrush}" FontSize="12" VerticalAlignment="Center">
+                                <Run Text="Only user-installed applications are shown here."/>
+                                <Run Text=" System / native processes are in the System Processes tab."/>
+                            </TextBlock>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="Quick Clean" Command="{Binding QuickCleanCommand}"
+                                        Background="#007ACC" Foreground="White" BorderThickness="0"
+                                        Padding="15,6" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                                <Button Content="Clean Selected" Command="{Binding CleanSelectedCommand}"
+                                        Background="#C23934" Foreground="White" BorderThickness="0"
+                                        Padding="15,6" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- User App DataGrid -->
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding UserAppProcesses}" AutoGenerateColumns="False"
+                                  CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
+                                  Background="Transparent" BorderThickness="0"
+                                  RowBackground="Transparent" AlternatingRowBackground="#262629"
+                                  GridLinesVisibility="None" Foreground="White" CanUserSortColumns="True">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#333337"/>
+                                    <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                    <Setter Property="BorderBrush" Value="#444448"/>
+                                </Style>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <!-- Select checkbox -->
+                                <DataGridTemplateColumn Width="40" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                      IsEnabled="{Binding CanForceStop}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="110" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding Importance}" Width="130" IsReadOnly="True"/>
+
+                                <!-- Cleanup Status -->
+                                <DataGridTemplateColumn Header="Cleanup Status" Width="170" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="True">
+                                                                    <Setter Property="Text" Value="🟢 Eligible"/>
+                                                                    <Setter Property="Foreground" Value="#4EC9B0"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Text" Value="🔒 Protected"/>
+                                                                    <Setter Property="Foreground" Value="#888888"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- Exclude from Quick Clean -->
+                                <DataGridTemplateColumn Header="Exclude from Quick Clean" Width="185" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsExcludedFromQuickClean, UpdateSourceTrigger=PropertyChanged}"
+                                                      IsEnabled="{Binding CanForceStop}"
+                                                      Content="Exclude" Foreground="#FFAAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- Force Stop action button -->
+                                <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="10,3" Margin="2" BorderThickness="0" Cursor="Hand">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Content" Value="Force Stop"/>
+                                                        <Setter Property="Background" Value="#444448"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                <Setter Property="Content" Value="🔒 Protected"/>
+                                                                <Setter Property="Background" Value="Transparent"/>
+                                                                <Setter Property="Foreground" Value="#666666"/>
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <!-- TAB 2 — SYSTEM PROCESSES (Process Explorer, read-only)            -->
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <TabItem Header="SYSTEM / ANDROID — PROCESS EXPLORER">
+                <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Warning banner -->
+                        <Border Grid.Row="0" Background="#2A1A1A" BorderBrush="#8A3020" BorderThickness="1"
+                                CornerRadius="4" Padding="10" Margin="0,0,0,10">
+                            <TextBlock TextWrapping="Wrap" Foreground="#FFA07A" FontSize="12">
+                                <Run FontWeight="Bold">⚠ READ-ONLY VIEW.</Run>
+                                <Run>These are Android system, vendor, and native processes. They are displayed here for diagnostic purposes only. Force Stop is not available for any process in this view.</Run>
+                                <LineBreak/>
+                                <Run Text="Data sources: "/>
+                                <Run Text="{Binding DataSources}" FontWeight="Bold"/>
+                            </TextBlock>
+                        </Border>
+
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding SystemProcesses}" AutoGenerateColumns="False"
+                                  CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column"
+                                  Background="Transparent" BorderThickness="0"
+                                  RowBackground="Transparent" AlternatingRowBackground="#262629"
+                                  GridLinesVisibility="None" Foreground="#FFBBBBBB" CanUserSortColumns="True">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#333337"/>
+                                    <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                    <Setter Property="BorderBrush" Value="#444448"/>
+                                </Style>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Process / Package" Binding="{Binding PackageName}" Width="*"/>
+                                <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="110"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding Importance}" Width="140"/>
+                                <DataGridTextColumn Header="Risk Level" Binding="{Binding RiskLevelString}" Width="120"/>
+                                <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="🔒 Protected" Foreground="#555555" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

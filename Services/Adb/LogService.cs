@@ -20,6 +20,7 @@ namespace RMX3171ControlCentre.Services.Adb
         void LogCommand(string command, string output, string error, int exitCode, bool isReadOnly = true);
         void LogMessage(string message);
         void LogDebug(string message);
+        void LogWarning(string message);
     }
 
     public class LogService : ILogService
@@ -84,6 +85,11 @@ namespace RMX3171ControlCentre.Services.Adb
         public void LogDebug(string message)
         {
             WriteToFile($"[{DateTime.Now:HH:mm:ss}] DEBUG:\n{message}");
+        }
+
+        public void LogWarning(string message)
+        {
+            WriteToFile($"[{DateTime.Now:HH:mm:ss}] WARNING: {message}");
         }
 
         private void WriteToFile(string text)
