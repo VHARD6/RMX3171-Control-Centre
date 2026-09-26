@@ -39,6 +39,9 @@ namespace RMX3171ControlCentre.ViewModels
         private bool _isAdvancedMode;
 
         [ObservableProperty]
+        private bool _isExpertMode;
+
+        [ObservableProperty]
         private string _modeText = "● READ-ONLY MODE";
 
         [ObservableProperty]
@@ -75,9 +78,24 @@ namespace RMX3171ControlCentre.ViewModels
 
             _appModeService.ModeChanged += (s, e) =>
             {
-                IsAdvancedMode = _appModeService.CurrentMode == Models.AppMode.Advanced;
-                ModeText = IsAdvancedMode ? "⚠ ADVANCED MODE" : "● READ-ONLY MODE";
-                ModeColor = IsAdvancedMode ? "Orange" : "LimeGreen";
+                IsAdvancedMode = _appModeService.CurrentMode == Models.AppMode.Advanced || _appModeService.CurrentMode == Models.AppMode.Expert;
+                IsExpertMode = _appModeService.CurrentMode == Models.AppMode.Expert;
+
+                if (IsExpertMode)
+                {
+                    ModeText = "⚠ EXPERT MODE";
+                    ModeColor = "Red";
+                }
+                else if (IsAdvancedMode)
+                {
+                    ModeText = "⚠ ADVANCED MODE";
+                    ModeColor = "Orange";
+                }
+                else
+                {
+                    ModeText = "● READ-ONLY MODE";
+                    ModeColor = "LimeGreen";
+                }
             };
 
             _telemetryService.SnapshotUpdated += (s, e) =>
@@ -115,11 +133,29 @@ namespace RMX3171ControlCentre.ViewModels
             }
             else
             {
-                var msg = "⚠ ADVANCED MODE\n\nDevice modification features will be enabled.\n\nOnly proceed if you know what you are doing. Modifying system packages or settings can cause instability. Are you sure you want to enter Advanced Mode?";
+                var msg = "⚠ ADVANCED MODE\n\nDevice modification features will be enabled.\n\nOnly proceed if you know what you are doing. Are you sure you want to enter Advanced Mode?";
                 var result = System.Windows.MessageBox.Show(msg, "Enable Advanced Mode", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
                 if (result == System.Windows.MessageBoxResult.Yes)
                 {
                     _appModeService.EnableAdvancedMode();
+                }
+            }
+        }
+
+        [RelayCommand]
+        private void ToggleExpertMode()
+        {
+            if (IsExpertMode)
+            {
+                _appModeService.DisableExpertMode();
+            }
+            else
+            {
+                var msg = "⚠ EXPERT ACTIONS\n\nThis allows operations on vendor/system packages that are not classified as critical. Review every operation carefully.\n\nAre you sure you want to enable Expert Actions?";
+                var result = System.Windows.MessageBox.Show(msg, "Enable Expert Actions", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+                if (result == System.Windows.MessageBoxResult.Yes)
+                {
+                    _appModeService.EnableExpertMode();
                 }
             }
         }
@@ -140,7 +176,6 @@ namespace RMX3171ControlCentre.ViewModels
                 _ => DashboardVM
             };
 
-            // Lazy load expensive pages if empty
             if (viewName == "AppManager" && AppManagerVM.FilteredPackages.Count == 0)
             {
                 _ = AppManagerVM.RefreshCommand.ExecuteAsync(null);
@@ -150,6 +185,5 @@ namespace RMX3171ControlCentre.ViewModels
                 _ = DeviceInfoVM.LoadPropertiesCommand.ExecuteAsync(null);
             }
         }
-
     }
 }

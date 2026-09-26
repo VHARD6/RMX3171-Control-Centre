@@ -7,6 +7,7 @@
         WindowStartupLocation="CenterScreen">
     
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <!-- DataTemplates for ViewModels -->
         <DataTemplate DataType="{x:Type viewmodels:DashboardViewModel}">
             <views:DashboardView />
@@ -74,6 +75,23 @@
                                 <DataTrigger Binding="{Binding IsAdvancedMode}" Value="True">
                                     <Setter Property="Content" Value="Exit Advanced Mode" />
                                     <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                
+                <Button Command="{Binding ToggleExpertModeCommand}" Margin="10,5" HorizontalAlignment="Stretch" Background="#FF3A1515"
+                        Visibility="{Binding IsAdvancedMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Setter Property="Content" Value="Enable Expert Actions" />
+                            <Setter Property="Foreground" Value="#FF6060" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
+                                    <Setter Property="Content" Value="Disable Expert Actions" />
+                                    <Setter Property="Foreground" Value="White" />
+                                    <Setter Property="Background" Value="#FF4A1515" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

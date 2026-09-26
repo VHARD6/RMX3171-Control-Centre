@@ -24,15 +24,12 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty]
         private MemoryInfo _currentMemoryInfo = new MemoryInfo();
 
-        /// <summary>
-        /// User applications only — these are the cleanup candidates.
-        /// </summary>
         [ObservableProperty]
         private ObservableCollection<AppProcessInfo> _userAppProcesses = new ObservableCollection<AppProcessInfo>();
 
-        /// <summary>
-        /// System, vendor, native daemons — read-only diagnostic view.
-        /// </summary>
+        [ObservableProperty]
+        private ObservableCollection<AppProcessInfo> _vendorOptionalProcesses = new ObservableCollection<AppProcessInfo>();
+
         [ObservableProperty]
         private ObservableCollection<AppProcessInfo> _systemProcesses = new ObservableCollection<AppProcessInfo>();
 
@@ -47,6 +44,9 @@ namespace RMX3171ControlCentre.ViewModels
 
         [ObservableProperty]
         private string _userAppsTotalLabel = "0 MB (PSS)";
+
+        [ObservableProperty]
+        private string _vendorTotalLabel = "0 MB (PSS)";
 
         [ObservableProperty]
         private string _systemTotalLabel = "0 MB (PSS)";
@@ -69,7 +69,10 @@ namespace RMX3171ControlCentre.ViewModels
             _telemetryService = telemetryService;
             _configService  = configService;
 
-            // Subscribe to telemetry snapshots for the summary cards (lightweight — no process scan)
+            _appModeService.ModeChanged += (s, e) => {
+                UpdateCanForceStop();
+            };
+
             _telemetryService.SnapshotUpdated += (s, e) =>
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -94,9 +97,29 @@ namespace RMX3171ControlCentre.ViewModels
             };
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Scan Memory
-        // ─────────────────────────────────────────────────────────────────────────
+        private void UpdateCanForceStop()
+        {
+            foreach (var app in UserAppProcesses.Concat(VendorOptionalProcesses).Concat(SystemProcesses))
+            {
+                if (app.IsCritical)
+                {
+                    app.CanForceStop = false;
+                }
+                else if (app.RiskLevel == PackageRiskLevel.LOW)
+                {
+                    app.CanForceStop = _appModeService.CurrentMode != AppMode.ReadOnly;
+                }
+                else if (app.RiskLevel == PackageRiskLevel.MODERATE || app.RiskLevel == PackageRiskLevel.HIGH || app.RiskLevel == PackageRiskLevel.UNKNOWN)
+                {
+                    app.CanForceStop = _appModeService.CurrentMode == AppMode.Expert;
+                }
+                else
+                {
+                    app.CanForceStop = false;
+                }
+            }
+        }
+
         [RelayCommand]
         public async Task RefreshAsync()
         {
@@ -111,7 +134,6 @@ namespace RMX3171ControlCentre.ViewModels
 
                 DataSources = query.Sources;
 
-                // ── User apps ────────────────────────────────────────────────────
                 UserAppProcesses.Clear();
                 foreach (var app in query.UserApps)
                 {
@@ -130,11 +152,17 @@ namespace RMX3171ControlCentre.ViewModels
                 }
                 UserAppsTotalLabel = $"{query.UserAppsTotal:F0} MB (PSS)";
 
-                // ── System processes ─────────────────────────────────────────────
+                VendorOptionalProcesses.Clear();
+                foreach (var proc in query.VendorOptional)
+                    VendorOptionalProcesses.Add(proc);
+                VendorTotalLabel = $"{query.VendorTotal:F0} MB (PSS)";
+
                 SystemProcesses.Clear();
                 foreach (var proc in query.SystemProcesses)
                     SystemProcesses.Add(proc);
                 SystemTotalLabel = $"{query.SystemTotal:F0} MB (PSS)";
+
+                UpdateCanForceStop();
             }
             finally
             {
@@ -142,25 +170,19 @@ namespace RMX3171ControlCentre.ViewModels
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Clean Selected
-        // ─────────────────────────────────────────────────────────────────────────
         [RelayCommand]
         private async Task CleanSelectedAsync()
         {
-            var selected = UserAppProcesses.Where(a => a.IsSelected && a.CanForceStop).ToList();
+            var selected = UserAppProcesses.Concat(VendorOptionalProcesses).Concat(SystemProcesses).Where(a => a.IsSelected && a.CanForceStop).ToList();
             if (selected.Count == 0)
             {
                 _dialogService.ShowMessage("Clean Selected",
-                    "No eligible apps selected.\n\nUse the checkboxes next to apps in the USER APPS list. Only apps marked as eligible can be cleaned.");
+                    "No eligible apps selected.\n\nUse the checkboxes next to apps. Only apps marked as eligible can be cleaned.");
                 return;
             }
             await ExecuteBatchCleanAsync(selected, "Clean Selected");
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Quick Clean
-        // ─────────────────────────────────────────────────────────────────────────
         [RelayCommand]
         private async Task QuickCleanAsync()
         {
@@ -177,9 +199,6 @@ namespace RMX3171ControlCentre.ViewModels
             await ExecuteBatchCleanAsync(candidates, "Quick Clean");
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Force Stop (single row action)
-        // ─────────────────────────────────────────────────────────────────────────
         [RelayCommand]
         private async Task ForceStopAsync(AppProcessInfo app)
         {
@@ -187,58 +206,57 @@ namespace RMX3171ControlCentre.ViewModels
             await ExecuteBatchCleanAsync(new List<AppProcessInfo> { app }, "Force Stop");
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Shared batch execution logic
-        // ─────────────────────────────────────────────────────────────────────────
         private async Task ExecuteBatchCleanAsync(List<AppProcessInfo> apps, string actionName)
         {
-            if (!_appModeService.IsModificationAllowed(RiskLevel.Modify))
+            // If any app requires Expert Actions, we must check for that.
+            bool needsExpert = apps.Any(a => a.RiskLevel != PackageRiskLevel.LOW);
+            
+            if (needsExpert && _appModeService.CurrentMode != AppMode.Expert)
+            {
+                _dialogService.ShowMessage("Expert Mode Required",
+                    "Some selected processes are vendor or system components.\nYou must enable Expert Actions to modify them.");
+                return;
+            }
+            else if (_appModeService.CurrentMode == AppMode.ReadOnly)
             {
                 _dialogService.ShowMessage("Access Denied",
-                    $"{actionName} is a MODIFY-level operation.\nPlease enter Advanced Mode to perform this action.");
+                    "Device modification is disabled.\nPlease enter Advanced Mode to perform this action.");
                 return;
             }
 
-            // Double-check every target passes safety
-            var safe   = apps.Where(a => a.CanForceStop && PackageRiskEvaluator.IsValidPackageName(a.PackageName)).ToList();
-            var unsafe_ = apps.Except(safe).ToList();
+            var safe = apps.Where(a => a.CanForceStop && PackageRiskEvaluator.IsValidPackageName(a.PackageName)).ToList();
+            if (safe.Count == 0) return;
 
-            if (safe.Count == 0)
-            {
-                _dialogService.ShowMessage("No eligible apps",
-                    "None of the selected processes are safe to force-stop.\nOnly user-installed applications can be cleaned.");
-                return;
-            }
-
-            // Build preview text
             double totalEstimatedMb = safe.Sum(a => a.RamMb);
-            string details = $"The following user applications will be force-stopped:\n\n";
+            string details = $"The following applications will be force-stopped:\n\n";
             string adbCmds = "";
             foreach (var a in safe)
             {
                 details += $"  • {a.PackageName}  ({a.RamMb:F0} MB  —  {a.Importance})\n";
+                if (a.RiskLevel != PackageRiskLevel.LOW) {
+                    details += $"    ⚠ {a.RecommendationString}: {a.Reason}\n";
+                }
                 adbCmds += $"adb shell am force-stop {a.PackageName}\n";
             }
-            if (unsafe_.Any())
-                details += $"\n{unsafe_.Count} item(s) skipped (protected/system/unknown).";
-
             details += $"\n\nEstimated combined PSS: ~{totalEstimatedMb:F0} MB";
-            details += "\n\nForce stopping an app closes its processes. You may need to reopen it, and some apps may restart background services later.";
-            details += "\nAndroid may reuse freed RAM for caching immediately after cleanup.";
+            
+            if (needsExpert)
+            {
+                details = "⚠ EXPERT ACTION\n\nYou are about to modify vendor or system components. The application cannot guarantee that stopping them will be harmless.\n\n" + details;
+            }
 
             bool confirm = await _dialogService.ShowModificationPreviewAsync(
-                actionName,
-                safe.Count == 1 ? safe[0].PackageName : $"{safe.Count} user applications",
+                needsExpert ? "EXPERT ACTION: " + actionName : actionName,
+                safe.Count == 1 ? safe[0].PackageName : $"{safe.Count} applications",
                 "Running / Background",
                 "Force Stopped",
                 adbCmds.TrimEnd(),
-                "MODIFY",
+                needsExpert ? "HIGH RISK" : "MODIFY",
                 details
             );
 
             if (!confirm) return;
 
-            // Snapshot BEFORE
             await _telemetryService.ForceRefreshAsync("All");
             double beforeUsedGb = CurrentMemoryInfo.UsedGB;
 
@@ -251,30 +269,19 @@ namespace RMX3171ControlCentre.ViewModels
                 if (ok) successCount++;
             }
 
-            // Wait for OS to settle, then re-snapshot
             await Task.Delay(1500);
             await _telemetryService.ForceRefreshAsync("All");
             double afterUsedGb = CurrentMemoryInfo.UsedGB;
 
             double deltaMb = (beforeUsedGb - afterUsedGb) * 1024.0;
-            string deltaText = deltaMb > 5
-                ? $"~{deltaMb:F0} MB"
-                : "Insignificant (Android may have immediately reused freed pages for caching)";
+            string deltaText = deltaMb > 5 ? $"~{deltaMb:F0} MB" : "Insignificant";
 
             LastCleanupSummary =
                 $"Last cleanup: {DateTime.Now:HH:mm}\n" +
                 $"Apps stopped: {successCount}/{safe.Count}\n" +
-                $"Before: {beforeUsedGb:F2} GB\n" +
-                $"After:  {afterUsedGb:F2} GB\n" +
                 $"Change: {deltaText}";
 
-            string resultMsg =
-                $"Stopped {successCount} application(s).\n\n" +
-                $"RAM usage decreased by approximately {deltaText}.\n\n" +
-                "Android may reuse available RAM for caching immediately after cleanup.\n" +
-                "Some apps may restart their background services automatically.";
-
-            _dialogService.ShowMessage("Cleanup Complete", resultMsg);
+            _dialogService.ShowMessage("Cleanup Complete", $"Stopped {successCount} application(s).\n\nRAM usage decreased by approximately {deltaText}.");
             await RefreshAsync();
         }
     }

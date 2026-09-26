@@ -55,14 +55,14 @@ namespace RMX3171ControlCentre.Services.Adb
 
         public async Task<(string Output, string Error, int ExitCode)> ExecuteCommandAsync(string arguments, bool isReadOnly = true, CancellationToken cancellationToken = default)
         {
-            if (!isReadOnly && _appModeService.CurrentMode != Models.AppMode.Advanced)
+            if (!isReadOnly && _appModeService.CurrentMode == Models.AppMode.ReadOnly)
             {
                 _logService.LogMessage($"BLOCKED: Attempted to run non-read-only command in ReadOnly mode: adb {arguments}");
                 return ("", "Command blocked by safety policy. Advanced Mode required.", -1);
             }
             if (!isReadOnly)
             {
-                _logService.LogMessage($"WARNING: Running non-read-only command in Advanced Mode: adb {arguments}");
+                _logService.LogMessage($"WARNING: Running non-read-only command in {_appModeService.CurrentMode} Mode: adb {arguments}");
             }
 
             var processStartInfo = new ProcessStartInfo

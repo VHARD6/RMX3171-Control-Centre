@@ -73,8 +73,7 @@ namespace RMX3171ControlCentre.Services.Device
                     string pkg = line.Substring(eqIndex + 1);
                     
                     bool isSys = sysPackages.Contains(pkg);
-                    var risk = RMX3171ControlCentre.Services.Security.PackageRiskEvaluator.Evaluate(pkg, isSys);
-                    bool isProtected = risk == PackageRiskLevel.PROTECTED || risk == PackageRiskLevel.SYSTEM || risk == PackageRiskLevel.UNKNOWN;
+                    var classification = RMX3171ControlCentre.Services.Security.PackageRiskEvaluator.Evaluate(pkg, isSys);
 
                     var memInfo = consumers.FirstOrDefault(c => c.PackageName == pkg);
 
@@ -83,10 +82,12 @@ namespace RMX3171ControlCentre.Services.Device
                         PackageName = pkg,
                         AppName = pkg, // Ideally we would resolve AppName via aapt, but pkg name is fallback
                         IsSystem = isSys,
-                        IsProtected = isProtected,
                         IsEnabled = !disabledPackages.Contains(pkg),
                         RamMb = memInfo?.RamMb ?? 0,
-                        RiskLevel = risk
+                        RiskLevel = classification.RiskLevel,
+                        Recommendation = classification.Recommendation,
+                        Reason = classification.Reason,
+                        Confidence = classification.Confidence
                     });
                 }
             }

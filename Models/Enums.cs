@@ -3,7 +3,8 @@ namespace RMX3171ControlCentre.Models
     public enum AppMode
     {
         ReadOnly,
-        Advanced
+        Advanced,
+        Expert
     }
 
     public enum RiskLevel
@@ -15,10 +16,19 @@ namespace RMX3171ControlCentre.Models
 
     public enum PackageRiskLevel
     {
-        SAFE_USER,
-        USER,
-        SYSTEM,
-        PROTECTED,
+        LOW,
+        MODERATE,
+        HIGH,
+        CRITICAL,
+        UNKNOWN
+    }
+
+    public enum PackageRecommendation
+    {
+        REMOVE_CANDIDATE,
+        OPTIONAL_COMPONENT,
+        KEEP_RECOMMENDED,
+        DO_NOT_REMOVE,
         UNKNOWN
     }
 }

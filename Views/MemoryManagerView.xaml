@@ -67,7 +67,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
                         <TextBlock Text="USER APPS" FontSize="11" FontWeight="Bold" Foreground="#888888"/>
                         <TextBlock Text="{Binding UserAppsTotalLabel}" FontSize="13" FontWeight="SemiBold" Foreground="#4EC9B0" Margin="0,2,0,8"/>
-                        <TextBlock Text="SYSTEM" FontSize="11" FontWeight="Bold" Foreground="#888888"/>
+                        <TextBlock Text="VENDOR / SYSTEM" FontSize="11" FontWeight="Bold" Foreground="#888888"/>
                         <TextBlock Text="{Binding SystemTotalLabel}" FontSize="13" FontWeight="SemiBold" Foreground="#FF888888" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
@@ -105,7 +105,7 @@
             </Border>
         </Grid>
 
-        <!-- Tabs: User Apps | System Processes -->
+        <!-- Tabs -->
         <TabControl Grid.Row="3" Background="Transparent" BorderThickness="0">
             <TabControl.Resources>
                 <Style TargetType="TabItem">
@@ -133,9 +133,9 @@
             </TabControl.Resources>
 
             <!-- ══════════════════════════════════════════════════════════════════ -->
-            <!-- TAB 1 — USER APPS (Memory Cleaner)                                -->
+            <!-- TAB 1 — USER APPS                                                -->
             <!-- ══════════════════════════════════════════════════════════════════ -->
-            <TabItem Header="USER APPS — MEMORY CLEANER">
+            <TabItem Header="USER APPLICATIONS">
                 <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -150,8 +150,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Foreground="{StaticResource SecondaryTextBrush}" FontSize="12" VerticalAlignment="Center">
-                                <Run Text="Only user-installed applications are shown here."/>
-                                <Run Text=" System / native processes are in the System Processes tab."/>
+                                <Run Text="Normal user-installed applications."/>
                             </TextBlock>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <Button Content="Quick Clean" Command="{Binding QuickCleanCommand}"
@@ -163,7 +162,6 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- User App DataGrid -->
                         <DataGrid Grid.Row="1" ItemsSource="{Binding UserAppProcesses}" AutoGenerateColumns="False"
                                   CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
                                   Background="Transparent" BorderThickness="0"
@@ -192,7 +190,6 @@
                                 </Style>
                             </DataGrid.Resources>
                             <DataGrid.Columns>
-                                <!-- Select checkbox -->
                                 <DataGridTemplateColumn Width="40" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -204,47 +201,20 @@
                                 </DataGridTemplateColumn>
 
                                 <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="110" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="State" Binding="{Binding Importance}" Width="130" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="100" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding Importance}" Width="110" IsReadOnly="True"/>
 
-                                <!-- Cleanup Status -->
-                                <DataGridTemplateColumn Header="Cleanup Status" Width="170" CanUserSort="False">
+                                <DataGridTemplateColumn Header="Recommendation" Width="180" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="True">
-                                                                    <Setter Property="Text" Value="🟢 Eligible"/>
-                                                                    <Setter Property="Foreground" Value="#4EC9B0"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
-                                                                    <Setter Property="Text" Value="🔒 Protected"/>
-                                                                    <Setter Property="Foreground" Value="#888888"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
+                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding RecommendationString}" FontWeight="SemiBold" Foreground="#4EC9B0"/>
+                                                <TextBlock Text="{Binding Reason}" FontSize="10" Foreground="#AAAAAA" TextWrapping="Wrap"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
 
-                                <!-- Exclude from Quick Clean -->
-                                <DataGridTemplateColumn Header="Exclude from Quick Clean" Width="185" CanUserSort="False">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <CheckBox IsChecked="{Binding IsExcludedFromQuickClean, UpdateSourceTrigger=PropertyChanged}"
-                                                      IsEnabled="{Binding CanForceStop}"
-                                                      Content="Exclude" Foreground="#FFAAAAAA" VerticalAlignment="Center"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-
-                                <!-- Force Stop action button -->
                                 <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -278,9 +248,112 @@
             </TabItem>
 
             <!-- ══════════════════════════════════════════════════════════════════ -->
-            <!-- TAB 2 — SYSTEM PROCESSES (Process Explorer, read-only)            -->
+            <!-- TAB 2 — VENDOR OPTIONAL                                          -->
             <!-- ══════════════════════════════════════════════════════════════════ -->
-            <TabItem Header="SYSTEM / ANDROID — PROCESS EXPLORER">
+            <TabItem Header="VENDOR OPTIONAL">
+                <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#1A2A3A" BorderBrush="#204060" BorderThickness="1"
+                                CornerRadius="4" Padding="10" Margin="0,0,0,10">
+                            <TextBlock TextWrapping="Wrap" Foreground="#A0C0E0" FontSize="12">
+                                <Run FontWeight="Bold">ℹ VENDOR COMPONENTS.</Run>
+                                <Run>These are vendor/OEM processes. Some may be optional. Requires Expert Actions to modify.</Run>
+                            </TextBlock>
+                        </Border>
+
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding VendorOptionalProcesses}" AutoGenerateColumns="False"
+                                  CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
+                                  Background="Transparent" BorderThickness="0"
+                                  RowBackground="Transparent" AlternatingRowBackground="#262629"
+                                  GridLinesVisibility="None" Foreground="White" CanUserSortColumns="True">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#333337"/>
+                                    <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                    <Setter Property="BorderBrush" Value="#444448"/>
+                                </Style>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="DataGridCell">
+                                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="40" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                      IsEnabled="{Binding CanForceStop}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="100" IsReadOnly="True"/>
+                                
+                                <DataGridTemplateColumn Header="Recommendation" Width="200" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding RecommendationString}" FontWeight="SemiBold" Foreground="#E0D050"/>
+                                                <TextBlock Text="{Binding Reason}" FontSize="10" Foreground="#AAAAAA" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="10,3" Margin="2" BorderThickness="0" Cursor="Hand">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Content" Value="Force Stop"/>
+                                                        <Setter Property="Background" Value="#444448"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                <Setter Property="Content" Value="🔒 Protected"/>
+                                                                <Setter Property="Background" Value="Transparent"/>
+                                                                <Setter Property="Foreground" Value="#666666"/>
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <!-- TAB 3 — SYSTEM / CRITICAL                                        -->
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <TabItem Header="SYSTEM / CRITICAL">
                 <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -292,8 +365,8 @@
                         <Border Grid.Row="0" Background="#2A1A1A" BorderBrush="#8A3020" BorderThickness="1"
                                 CornerRadius="4" Padding="10" Margin="0,0,0,10">
                             <TextBlock TextWrapping="Wrap" Foreground="#FFA07A" FontSize="12">
-                                <Run FontWeight="Bold">⚠ READ-ONLY VIEW.</Run>
-                                <Run>These are Android system, vendor, and native processes. They are displayed here for diagnostic purposes only. Force Stop is not available for any process in this view.</Run>
+                                <Run Text="System and vendor components are shown for diagnostic purposes."/>
+                                <Run Text=" Critical Android components remain protected."/>
                                 <LineBreak/>
                                 <Run Text="Data sources: "/>
                                 <Run Text="{Binding DataSources}" FontWeight="Bold"/>
@@ -301,7 +374,7 @@
                         </Border>
 
                         <DataGrid Grid.Row="1" ItemsSource="{Binding SystemProcesses}" AutoGenerateColumns="False"
-                                  CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column"
+                                  CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
                                   Background="Transparent" BorderThickness="0"
                                   RowBackground="Transparent" AlternatingRowBackground="#262629"
                                   GridLinesVisibility="None" Foreground="#FFBBBBBB" CanUserSortColumns="True">
@@ -328,14 +401,64 @@
                                 </Style>
                             </DataGrid.Resources>
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="40" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                      IsEnabled="{Binding CanForceStop}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
                                 <DataGridTextColumn Header="Process / Package" Binding="{Binding PackageName}" Width="*"/>
-                                <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="110"/>
-                                <DataGridTextColumn Header="State" Binding="{Binding Importance}" Width="140"/>
-                                <DataGridTextColumn Header="Risk Level" Binding="{Binding RiskLevelString}" Width="120"/>
+                                <DataGridTextColumn Header="RAM" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="70"/>
+                                
+                                <DataGridTemplateColumn Header="Recommendation" Width="200" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding RecommendationString}" FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#FFA07A" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsCritical}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#FF6060"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Reason}" FontSize="10" Foreground="#888888" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                
                                 <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="🔒 Protected" Foreground="#555555" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                                            <Button Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="10,3" Margin="2" BorderThickness="0" Cursor="Hand">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Content" Value="Force Stop"/>
+                                                        <Setter Property="Background" Value="#444448"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                <Setter Property="Content" Value="🔒 Protected"/>
+                                                                <Setter Property="Background" Value="Transparent"/>
+                                                                <Setter Property="Foreground" Value="#666666"/>
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

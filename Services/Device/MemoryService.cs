@@ -16,34 +16,15 @@ namespace RMX3171ControlCentre.Services.Device
         Task<bool> ForceStopAppAsync(string packageName);
     }
 
-    /// <summary>
-    /// Holds the result of a full memory scan, split into user apps and system processes.
-    /// </summary>
     public class MemoryQueryResult
     {
-        /// <summary>
-        /// User applications — eligible for Force Stop (after Advanced Mode check).
-        /// </summary>
         public List<AppProcessInfo> UserApps { get; set; } = new List<AppProcessInfo>();
-
-        /// <summary>
-        /// System, vendor, native, and unclassified processes — read-only diagnostic.
-        /// </summary>
+        public List<AppProcessInfo> VendorOptional { get; set; } = new List<AppProcessInfo>();
         public List<AppProcessInfo> SystemProcesses { get; set; } = new List<AppProcessInfo>();
-
-        /// <summary>
-        /// The data sources used for this query (for display in the UI).
-        /// </summary>
         public string Sources { get; set; } = "";
-
-        /// <summary>
-        /// Total PSS of all user apps in MB.
-        /// </summary>
+        
         public double UserAppsTotal => UserApps.Sum(a => a.RamMb);
-
-        /// <summary>
-        /// Total PSS of all system processes in MB.
-        /// </summary>
+        public double VendorTotal => VendorOptional.Sum(a => a.RamMb);
         public double SystemTotal => SystemProcesses.Sum(a => a.RamMb);
     }
 
@@ -58,9 +39,6 @@ namespace RMX3171ControlCentre.Services.Device
             _logService = logService;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // GetMemoryInfoAsync — /proc/meminfo + /proc/swaps for ZRAM
-        // ─────────────────────────────────────────────────────────────────────────
         public async Task<MemoryInfo> GetMemoryInfoAsync()
         {
             var memInfo = new MemoryInfo();
@@ -86,7 +64,6 @@ namespace RMX3171ControlCentre.Services.Device
                 memInfo.UsedGB = Math.Max(0, memInfo.TotalGB - memInfo.AvailableGB);
             }
 
-            // ZRAM via /proc/swaps
             var swapResult = await _adbService.ExecuteCommandAsync("shell cat /proc/swaps");
             if (swapResult.ExitCode == 0)
             {
@@ -106,7 +83,6 @@ namespace RMX3171ControlCentre.Services.Device
                 }
             }
 
-            // Memory pressure: use dumpsys meminfo status line, not free-RAM percentage
             var meminfoResult = await _adbService.ExecuteCommandAsync("shell dumpsys meminfo");
             if (meminfoResult.ExitCode == 0)
             {
@@ -129,30 +105,13 @@ namespace RMX3171ControlCentre.Services.Device
             return memInfo;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // GetProcessesAsync — combined dumpsys meminfo OOM + pm list packages
-        //
-        // DATA SOURCE: "Total PSS by OOM adjustment:" section of dumpsys meminfo.
-        // This section lists every running process grouped by Android lifecycle state:
-        //   Native, System, Persistent, Foreground, Visible, Perceptible,
-        //   A Services, B Services, Cached.
-        //
-        // CROSS-REFERENCE: pm list packages -3 gives the set of user-installed
-        // (third-party) package names. We use this to validate that an entry in
-        // the meminfo output corresponds to a real installed APK, not a native binary.
-        //
-        // METRIC: PSS (Proportional Set Size) — accounts for shared memory pages
-        // proportionally. It understates true RAM impact compared to RSS but is the
-        // most accurate per-process metric Android exposes via this API.
-        // ─────────────────────────────────────────────────────────────────────────
         public async Task<MemoryQueryResult> GetProcessesAsync()
         {
             var result = new MemoryQueryResult
             {
-                Sources = "ActivityManager (dumpsys meminfo) + PackageManager (pm list packages)"
+                Sources = "ActivityManager + PackageManager"
             };
 
-            // Step 1: Get list of user-installed package names for cross-referencing
             var userPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var pmResult = await _adbService.ExecuteCommandAsync("shell pm list packages -3");
             if (pmResult.ExitCode == 0)
@@ -165,7 +124,6 @@ namespace RMX3171ControlCentre.Services.Device
                 }
             }
 
-            // Step 2: Parse dumpsys meminfo OOM adjustment section
             var meminfoResult = await _adbService.ExecuteCommandAsync("shell dumpsys meminfo");
             if (meminfoResult.ExitCode != 0)
                 return result;
@@ -175,13 +133,9 @@ namespace RMX3171ControlCentre.Services.Device
             bool inOomSection = false;
             string currentOomCategory = "Unknown";
 
-            // Process line: "        282,357K: com.instagram.android (pid 2252)"
-            // Also matches:  "         62,670K: media.codec (pid 1200)"
             var processRegex = new Regex(@"^\s{6,}([\d,]+)\s*K:\s+([^\s(]+)\s*\(pid\s+\d+");
-            // Category line: "    340,205K: Foreground"  (indented 4-6 spaces, no parenthesis)
             var categoryRegex = new Regex(@"^\s{2,6}([\d,]+)\s*K:\s+([A-Za-z][A-Za-z\s]+)$");
 
-            // Aggregated by base package name
             var byPackage = new Dictionary<string, AppProcessInfo>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var line in lines)
@@ -196,7 +150,6 @@ namespace RMX3171ControlCentre.Services.Device
 
                 if (!inOomSection) continue;
 
-                // Try category first (less indented)
                 var catMatch = categoryRegex.Match(line);
                 if (catMatch.Success)
                 {
@@ -204,7 +157,6 @@ namespace RMX3171ControlCentre.Services.Device
                     continue;
                 }
 
-                // Then try process line
                 var procMatch = processRegex.Match(line);
                 if (!procMatch.Success) continue;
 
@@ -214,76 +166,67 @@ namespace RMX3171ControlCentre.Services.Device
                 if (!double.TryParse(kbStr, out double kbVal)) continue;
                 double mb = kbVal / 1024.0;
 
-                // Strip :suffix (e.g., com.instagram.android:fbns → com.instagram.android)
                 string basePackage = processName.Contains(':')
                     ? processName.Substring(0, processName.IndexOf(':'))
                     : processName;
 
-                // Classify
                 bool isPmUserApp = userPackages.Contains(basePackage);
-                var risk = PackageRiskEvaluator.Evaluate(basePackage, !isPmUserApp);
+                var classification = PackageRiskEvaluator.Evaluate(basePackage, !isPmUserApp);
 
-                // Aggregate multiple processes of the same app
                 if (byPackage.TryGetValue(basePackage, out var existing))
                 {
                     existing.RamMb += mb;
-                    // Upgrade importance category if this process is "more foreground"
                     if (ImportanceRank(currentOomCategory) > ImportanceRank(existing.Importance))
                         existing.Importance = currentOomCategory;
                 }
                 else
                 {
-                    bool canStop = PackageRiskEvaluator.IsDestructiveActionAllowed(risk)
-                                   && PackageRiskEvaluator.IsValidPackageName(basePackage);
-
                     byPackage[basePackage] = new AppProcessInfo
                     {
                         PackageName = basePackage,
                         AppName     = basePackage,
                         RamMb       = mb,
                         Importance  = currentOomCategory,
-                        IsProtected = !canStop,
-                        RiskLevel   = risk,
-                        CanForceStop = canStop,
+                        RiskLevel   = classification.RiskLevel,
+                        Recommendation = classification.Recommendation,
+                        Reason = classification.Reason
                     };
                 }
             }
 
-            // Step 3: Split into user vs system buckets
             foreach (var proc in byPackage.Values.OrderByDescending(p => p.RamMb))
             {
-                bool isUserApp = proc.RiskLevel == PackageRiskLevel.SAFE_USER
-                              || proc.RiskLevel == PackageRiskLevel.USER;
-
-                // Additional guard: must be a real package AND registered as user-installed
-                // OR we are confident it's a third-party app based on pm -3
-                if (isUserApp && PackageRiskEvaluator.IsValidPackageName(proc.PackageName))
+                if (proc.RiskLevel == PackageRiskLevel.LOW && PackageRiskEvaluator.IsValidPackageName(proc.PackageName))
+                {
                     result.UserApps.Add(proc);
+                }
+                else if (proc.RiskLevel == PackageRiskLevel.MODERATE && PackageRiskEvaluator.IsValidPackageName(proc.PackageName))
+                {
+                    result.VendorOptional.Add(proc);
+                }
                 else
+                {
                     result.SystemProcesses.Add(proc);
+                }
             }
 
             return result;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // ForceStopAppAsync
-        // ─────────────────────────────────────────────────────────────────────────
         public async Task<bool> ForceStopAppAsync(string packageName)
         {
             if (string.IsNullOrEmpty(packageName)) return false;
 
-            // Safety: refuse to force-stop native processes
             if (!PackageRiskEvaluator.IsValidPackageName(packageName))
             {
                 _logService.LogWarning($"ForceStop refused: '{packageName}' is not a valid package name.");
                 return false;
             }
 
-            var risk = PackageRiskEvaluator.Evaluate(packageName, false);
-            if (!PackageRiskEvaluator.IsDestructiveActionAllowed(risk))
+            var classification = PackageRiskEvaluator.Evaluate(packageName, false);
+            if (classification.RiskLevel == PackageRiskLevel.CRITICAL)
             {
-                _logService.LogWarning($"ForceStop refused: '{packageName}' is classified as {risk}.");
+                _logService.LogWarning($"ForceStop refused: '{packageName}' is classified as CRITICAL.");
                 return false;
             }
 
@@ -293,11 +236,6 @@ namespace RMX3171ControlCentre.Services.Device
             return result.ExitCode == 0;
         }
 
-        /// <summary>
-        /// Returns a numeric rank for OOM categories so we can prefer the most
-        /// "foreground" state when aggregating multi-process apps.
-        /// Higher = more foreground.
-        /// </summary>
         private static int ImportanceRank(string category) => category switch
         {
             "Foreground"          => 100,
