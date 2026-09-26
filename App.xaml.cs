@@ -40,6 +40,7 @@ namespace RMX3171ControlCentre
             services.AddTransient<DashboardViewModel>();
             services.AddTransient<DeviceInfoViewModel>();
             services.AddTransient<StorageViewModel>();
+            services.AddTransient<ViewModels.Storage.AppStorageViewModel>();
             services.AddTransient<BatteryViewModel>();
             services.AddTransient<LogsViewModel>();
             services.AddTransient<CapacityTesterViewModel>();

@@ -48,7 +48,10 @@ namespace RMX3171ControlCentre.ViewModels
             _telemetryService.SnapshotUpdated += (s, e) =>
             {
                 var snap = _telemetryService.CurrentSnapshot.Battery;
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher == null || dispatcher.HasShutdownStarted) return;
+
+                dispatcher.BeginInvoke(new Action(() =>
                 {
                     if (snap.LastUpdated != System.DateTime.MinValue)
                     {
@@ -67,7 +70,7 @@ namespace RMX3171ControlCentre.ViewModels
                         IsStale = secondsAgo > 5;
                         LastUpdatedText = IsStale ? $"Last updated {secondsAgo:F1}s ago" : "Live";
                     }
-                });
+                }));
             };
         }
 

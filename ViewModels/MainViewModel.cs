@@ -76,6 +76,8 @@ namespace RMX3171ControlCentre.ViewModels
 
             CurrentViewModel = DashboardVM;
 
+
+
             _appModeService.ModeChanged += (s, e) =>
             {
                 IsAdvancedMode = _appModeService.CurrentMode == Models.AppMode.Advanced || _appModeService.CurrentMode == Models.AppMode.Expert;
@@ -100,7 +102,10 @@ namespace RMX3171ControlCentre.ViewModels
 
             _telemetryService.SnapshotUpdated += (s, e) =>
             {
-                App.Current.Dispatcher.Invoke(() =>
+                var dispatcher = App.Current?.Dispatcher;
+                if (dispatcher == null || dispatcher.HasShutdownStarted) return;
+
+                dispatcher.BeginInvoke(new Action(() =>
                 {
                     var snap = _telemetryService.CurrentSnapshot;
                     if (snap.IsConnected)
@@ -118,7 +123,7 @@ namespace RMX3171ControlCentre.ViewModels
                         ConnectionStatus = "NO DEVICE / CONNECTION LOST";
                         ConnectionColor = "Red";
                     }
-                });
+                }));
             };
 
             _telemetryService.Start();

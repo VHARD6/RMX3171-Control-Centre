@@ -75,7 +75,10 @@ namespace RMX3171ControlCentre.ViewModels
 
             _telemetryService.SnapshotUpdated += (s, e) =>
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher == null || dispatcher.HasShutdownStarted) return;
+
+                dispatcher.BeginInvoke(new Action(() =>
                 {
                     var snap = _telemetryService.CurrentSnapshot.Memory;
                     if (snap.LastUpdated != System.DateTime.MinValue)
@@ -93,7 +96,7 @@ namespace RMX3171ControlCentre.ViewModels
 
                         OnPropertyChanged(nameof(CurrentMemoryInfo));
                     }
-                });
+                }));
             };
         }
 

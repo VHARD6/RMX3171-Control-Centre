@@ -36,28 +36,28 @@ namespace RMX3171ControlCentre.Services.Adb
             _logFilePath = Path.Combine(logDir, $"app_log_{DateTime.Now:yyyyMMdd}.txt");
         }
 
+        private readonly object _fileLock = new object();
+
         public void LogCommand(string command, string output, string error, int exitCode, bool isReadOnly = true)
         {
+            string truncatedOutput = output;
+            if (truncatedOutput != null && truncatedOutput.Length > 1000)
+            {
+                truncatedOutput = truncatedOutput.Substring(0, 1000) + "... [TRUNCATED]";
+            }
+
             var entry = new LogEntry
             {
                 Timestamp = DateTime.Now,
                 Command = command,
-                Output = output,
+                Output = truncatedOutput,
                 Error = error,
                 ExitCode = exitCode,
                 IsReadOnly = isReadOnly
             };
 
-            if (System.Windows.Application.Current?.Dispatcher != null)
-            {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => Logs.Add(entry));
-            }
-            else
-            {
-                Logs.Add(entry);
-            }
-            
-            WriteToFile($"[{entry.Timestamp:HH:mm:ss}] CMD: {command} | EXIT: {exitCode} | OUT: {output} | ERR: {error}");
+            AddLogEntry(entry);
+            WriteToFile($"[{entry.Timestamp:HH:mm:ss}] CMD: {command} | EXIT: {exitCode} | OUT: {truncatedOutput.Replace(Environment.NewLine, " ")} | ERR: {error}");
         }
 
         public void LogMessage(string message)
@@ -70,16 +70,32 @@ namespace RMX3171ControlCentre.Services.Adb
                 IsReadOnly = true
             };
             
-            if (System.Windows.Application.Current?.Dispatcher != null)
+            AddLogEntry(entry);
+            WriteToFile($"[{entry.Timestamp:HH:mm:ss}] MSG: {message}");
+        }
+
+        private void AddLogEntry(LogEntry entry)
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.HasShutdownStarted)
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => Logs.Add(entry));
+                dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Logs.Add(entry);
+                    while (Logs.Count > 500)
+                    {
+                        Logs.RemoveAt(0);
+                    }
+                }));
             }
             else
             {
                 Logs.Add(entry);
+                while (Logs.Count > 500)
+                {
+                    Logs.RemoveAt(0);
+                }
             }
-            
-            WriteToFile($"[{entry.Timestamp:HH:mm:ss}] MSG: {message}");
         }
 
         public void LogDebug(string message)
@@ -94,11 +110,17 @@ namespace RMX3171ControlCentre.Services.Adb
 
         private void WriteToFile(string text)
         {
-            try
+            Task.Run(() =>
             {
-                File.AppendAllText(_logFilePath, text + Environment.NewLine);
-            }
-            catch { }
+                try
+                {
+                    lock (_fileLock)
+                    {
+                        File.AppendAllText(_logFilePath, text + Environment.NewLine);
+                    }
+                }
+                catch { }
+            });
         }
     }
 }

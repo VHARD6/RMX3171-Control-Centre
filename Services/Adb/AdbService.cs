@@ -53,6 +53,8 @@ namespace RMX3171ControlCentre.Services.Adb
             await ExecuteCommandAsync("start-server");
         }
 
+        private readonly SemaphoreSlim _adbLock = new SemaphoreSlim(1, 1);
+
         public async Task<(string Output, string Error, int ExitCode)> ExecuteCommandAsync(string arguments, bool isReadOnly = true, CancellationToken cancellationToken = default)
         {
             if (!isReadOnly && _appModeService.CurrentMode == Models.AppMode.ReadOnly)
@@ -65,51 +67,58 @@ namespace RMX3171ControlCentre.Services.Adb
                 _logService.LogMessage($"WARNING: Running non-read-only command in {_appModeService.CurrentMode} Mode: adb {arguments}");
             }
 
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = _adbPath,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            string output = "";
-            string error = "";
-            int exitCode = -1;
-
+            await _adbLock.WaitAsync(cancellationToken);
             try
             {
-                using var process = new Process { StartInfo = processStartInfo };
-                
-                process.Start();
-
-                var outputTask = process.StandardOutput.ReadToEndAsync();
-                var errorTask = process.StandardError.ReadToEndAsync();
-
-                await Task.WhenAny(Task.WhenAll(outputTask, errorTask), Task.Delay(10000, cancellationToken));
-                
-                if (!process.HasExited)
+                var processStartInfo = new ProcessStartInfo
                 {
-                    process.Kill();
-                    error = "Command timed out.";
-                }
-                else
+                    FileName = _adbPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                string output = "";
+                string error = "";
+                int exitCode = -1;
+
+                try
                 {
-                    output = await outputTask;
-                    error = await errorTask;
-                    exitCode = process.ExitCode;
+                    using var process = new Process { StartInfo = processStartInfo };
+                    process.Start();
+
+                    var outputTask = process.StandardOutput.ReadToEndAsync();
+                    var errorTask = process.StandardError.ReadToEndAsync();
+
+                    var completed = await Task.WhenAny(Task.WhenAll(outputTask, errorTask), Task.Delay(15000, cancellationToken));
+                    if (completed != Task.WhenAll(outputTask, errorTask) && !process.HasExited)
+                    {
+                        try { process.Kill(); } catch { }
+                        error = "Command timed out.";
+                    }
+                    else
+                    {
+                        output = await outputTask;
+                        error = await errorTask;
+                        try { if (!process.HasExited) process.WaitForExit(1000); } catch { }
+                        exitCode = process.HasExited ? process.ExitCode : 0;
+                    }
                 }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                _logService.LogCommand($"adb {arguments}", output.Trim(), error.Trim(), exitCode, isReadOnly);
+
+                return (output, error, exitCode);
             }
-            catch (Exception ex)
+            finally
             {
-                error = ex.Message;
+                _adbLock.Release();
             }
-
-            _logService.LogCommand($"adb {arguments}", output.Trim(), error.Trim(), exitCode, isReadOnly);
-
-            return (output, error, exitCode);
         }
     }
 }

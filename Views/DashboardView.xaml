@@ -47,6 +47,58 @@
                     </StackPanel>
                 </Border>
             </UniformGrid>
+            
+            <Border Style="{StaticResource CardStyle}" Width="450" HorizontalAlignment="Left" Margin="10,20,0,0">
+                <StackPanel>
+                    <TextBlock Text="Wireless ADB (Android 11+)" FontSize="16" FontWeight="Bold" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,10"/>
+                    <TextBlock Text="1. Enable Developer Options &amp; Wireless Debugging.&#10;2. Pair device with port &amp; code shown on phone.&#10;3. Connect using the persistent IP &amp; port (often 5555)." 
+                               TextWrapping="Wrap" Foreground="#FFCCCCCC" Margin="0,0,0,15" FontSize="12"/>
+                    
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="70"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Column="0" Text="IP:" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding WirelessIp, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0"/>
+                        
+                        <TextBlock Grid.Column="2" Text="Pair Port:" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Grid.Column="3" Text="{Binding PairingPort, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0"/>
+                        
+                        <TextBlock Grid.Column="4" Text="Code:" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Grid.Column="5" Text="{Binding PairingCode, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+                    
+                    <Button Content="Pair Device" Command="{Binding PairWirelessCommand}" Margin="0,0,0,15" Padding="5"/>
+                    
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="60"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Column="0" Text="IP:" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding WirelessIp, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0"/>
+                        
+                        <TextBlock Grid.Column="2" Text="Conn Port:" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Grid.Column="3" Text="{Binding ConnectionPort, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+                    
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <Button Content="Connect" Command="{Binding ConnectWirelessCommand}" Padding="15,5" Margin="0,0,10,0"/>
+                        <Button Content="Disconnect All" Command="{Binding DisconnectWirelessCommand}" Padding="15,5" Background="#FF333333"/>
+                    </StackPanel>
+                    
+                    <TextBlock Text="{Binding WirelessMessage}" Foreground="{Binding WirelessMessageColor}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
