@@ -40,8 +40,8 @@ namespace RMX3171ControlCentre.Services.Adb
 
         public void LogCommand(string command, string output, string error, int exitCode, bool isReadOnly = true)
         {
-            string truncatedOutput = output;
-            if (truncatedOutput != null && truncatedOutput.Length > 1000)
+            string truncatedOutput = output ?? string.Empty;
+            if (truncatedOutput.Length > 1000)
             {
                 truncatedOutput = truncatedOutput.Substring(0, 1000) + "... [TRUNCATED]";
             }

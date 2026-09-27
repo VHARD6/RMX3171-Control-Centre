@@ -33,13 +33,19 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty] private bool _isHubVisible = true;
         [ObservableProperty] private ViewModelBase? _currentView;
         [ObservableProperty] private string _appStorageTotalText = "Scan required";
+        [ObservableProperty] private string _photoStorageTotalText = "Scan required";
 
         private readonly AppStorageViewModel _appStorageViewModel;
+        private readonly PhotosStorageViewModel _photosStorageViewModel;
 
-        public StorageViewModel(ITelemetryService telemetryService, AppStorageViewModel appStorageViewModel)
+        public StorageViewModel(
+            ITelemetryService telemetryService,
+            AppStorageViewModel appStorageViewModel,
+            PhotosStorageViewModel photosStorageViewModel)
         {
             _telemetryService = telemetryService;
             _appStorageViewModel = appStorageViewModel;
+            _photosStorageViewModel = photosStorageViewModel;
 
             _appStorageViewModel.OnBackRequested += () => 
             {
@@ -51,6 +57,18 @@ namespace RMX3171ControlCentre.ViewModels
             _appStorageViewModel.OnTotalAppStorageUpdated += (totalGb) =>
             {
                 AppStorageTotalText = $"{totalGb:F1} GB";
+            };
+
+            _photosStorageViewModel.OnBackRequested += () => 
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+                _photosStorageViewModel.OnNavigatedFrom();
+            };
+
+            _photosStorageViewModel.OnTotalPhotoStorageUpdated += (totalGb, count) =>
+            {
+                PhotoStorageTotalText = $"{totalGb:F2} GB";
             };
 
             var cached = _telemetryService.CurrentSnapshot?.Storage;
@@ -75,6 +93,14 @@ namespace RMX3171ControlCentre.ViewModels
             IsHubVisible = false;
             CurrentView = _appStorageViewModel;
             await _appStorageViewModel.OnNavigatedToAsync();
+        }
+
+        [RelayCommand]
+        private async Task NavigateToPhotosAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _photosStorageViewModel;
+            await _photosStorageViewModel.OnNavigatedToAsync();
         }
 
         public async Task EnsureLoadedAsync()
