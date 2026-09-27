@@ -1,16 +1,34 @@
 using System;
+using System.Windows.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace RMX3171ControlCentre.Models.Storage
 {
-    public class PhotoItem
+    public enum StorageLocation
     {
-        public string FileName { get; set; } = string.Empty;
-        public string FullPath { get; set; } = string.Empty;
-        public string Folder { get; set; } = string.Empty;
-        public long SizeBytes { get; set; }
-        public DateTime DateModified { get; set; } = DateTime.MinValue;
-        public string Extension { get; set; } = string.Empty;
-        public string MimeType { get; set; } = string.Empty;
+        Unknown,
+        Internal,
+        ExternalSd
+    }
+
+    public partial class PhotoItem : ObservableObject
+    {
+        [ObservableProperty] private string _fileName = string.Empty;
+        [ObservableProperty] private string _fullPath = string.Empty;
+        [ObservableProperty] private string _folder = string.Empty;
+        [ObservableProperty] private long _sizeBytes;
+        [ObservableProperty] private DateTime _dateModified = DateTime.MinValue;
+        [ObservableProperty] private string _extension = string.Empty;
+        [ObservableProperty] private string _mimeType = string.Empty;
+
+        // New properties for Explorer-style view
+        [ObservableProperty] private StorageLocation _location = StorageLocation.Unknown;
+        [ObservableProperty] private string _volumeId = string.Empty;
+        [ObservableProperty] private ImageSource? _thumbnail;
+        [ObservableProperty] private bool _isSelected;
+
+        public string StorageSourceLabel => Location == StorageLocation.Internal ? "INTERNAL" : 
+                                            Location == StorageLocation.ExternalSd ? "SD CARD" : "UNKNOWN";
 
         public string SizeText
         {

@@ -6,6 +6,12 @@ namespace RMX3171ControlCentre.Models.Storage
         public int PhotoCount { get; set; }
         public long TotalSizeBytes { get; set; }
         public string SamplePath { get; set; } = string.Empty;
+        
+        public StorageLocation Location { get; set; } = StorageLocation.Unknown;
+        public string VolumeId { get; set; } = string.Empty;
+
+        public string LocationLabel => Location == StorageLocation.Internal ? "Internal Storage" : 
+                                       Location == StorageLocation.ExternalSd ? "SD Card" : "Unknown";
 
         public string PhotoCountText => PhotoCount == 1 ? "1 photo" : $"{PhotoCount:N0} photos";
 
