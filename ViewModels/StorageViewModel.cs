@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RMX3171ControlCentre.Models;
 using RMX3171ControlCentre.Services.Telemetry;
+using RMX3171ControlCentre.ViewModels.Storage;
 
 namespace RMX3171ControlCentre.ViewModels
 {
@@ -29,9 +30,28 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty] private bool _isRefreshing;
         [ObservableProperty] private string _lastUpdatedText = "Waiting for data...";
 
-        public StorageViewModel(ITelemetryService telemetryService)
+        [ObservableProperty] private bool _isHubVisible = true;
+        [ObservableProperty] private ViewModelBase? _currentView;
+        [ObservableProperty] private string _appStorageTotalText = "Scan required";
+
+        private readonly AppStorageViewModel _appStorageViewModel;
+
+        public StorageViewModel(ITelemetryService telemetryService, AppStorageViewModel appStorageViewModel)
         {
             _telemetryService = telemetryService;
+            _appStorageViewModel = appStorageViewModel;
+
+            _appStorageViewModel.OnBackRequested += () => 
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+                _appStorageViewModel.OnNavigatedFrom();
+            };
+
+            _appStorageViewModel.OnTotalAppStorageUpdated += (totalGb) =>
+            {
+                AppStorageTotalText = $"{totalGb:F1} GB";
+            };
 
             var cached = _telemetryService.CurrentSnapshot?.Storage;
             if (cached != null && cached.TotalGb > 0 && cached.LastUpdated != DateTime.MinValue)
@@ -47,6 +67,14 @@ namespace RMX3171ControlCentre.ViewModels
             }
 
             _telemetryService.SnapshotUpdated += OnSnapshotUpdated;
+        }
+
+        [RelayCommand]
+        private async Task NavigateToAppsAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _appStorageViewModel;
+            await _appStorageViewModel.OnNavigatedToAsync();
         }
 
         public async Task EnsureLoadedAsync()

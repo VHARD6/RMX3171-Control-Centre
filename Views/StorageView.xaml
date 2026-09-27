@@ -1,8 +1,13 @@
 <UserControl x:Class="RMX3171ControlCentre.Views.StorageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:localViewModels="clr-namespace:RMX3171ControlCentre.ViewModels.Storage"
+             xmlns:localViews="clr-namespace:RMX3171ControlCentre.Views.Storage">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <DataTemplate DataType="{x:Type localViewModels:AppStorageViewModel}">
+            <localViews:AppStorageView />
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Margin="20">
@@ -32,8 +37,9 @@
             </StackPanel>
         </Grid>
 
-        <!-- Content Area -->
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <!-- Content Area: Hub -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" 
+                      Visibility="{Binding IsHubVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
             <StackPanel MaxWidth="800" HorizontalAlignment="Left">
 
                 <!-- Loading State Card -->
@@ -50,7 +56,7 @@
                 <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20"
                         Visibility="{Binding IsUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel Margin="10,25" HorizontalAlignment="Center">
-                        <TextBlock Text="INTERNAL STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Text="USER-DATA STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" HorizontalAlignment="Center" Margin="0,0,0,10"/>
                         <TextBlock Text="{Binding LoadingStatusText}" Foreground="#FFAAAAAA" FontSize="15" HorizontalAlignment="Center" Margin="0,0,15,0"/>
                         <Button Content="Retry" Command="{Binding RefreshStorageCommand}" Margin="0,15,0,0" Padding="16,6"
                                 Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" HorizontalAlignment="Center"/>
@@ -63,7 +69,7 @@
                     <StackPanel Margin="5">
                         <!-- Card Title & Status Badge -->
                         <Grid Margin="0,0,0,10">
-                            <TextBlock Text="INTERNAL STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" VerticalAlignment="Center"/>
+                            <TextBlock Text="USER-DATA STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding HealthIndicatorText}" Foreground="{Binding HealthIndicatorColor}" 
                                        HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
                         </Grid>
@@ -107,7 +113,31 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Categories -->
+                <Grid Visibility="{Binding IsLoaded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Command="{Binding NavigateToAppsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
+                            <StackPanel VerticalAlignment="Center" Margin="10">
+                                <TextBlock Text="Apps" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
+                                <TextBlock Text="{Binding AppStorageTotalText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </Grid>
+
             </StackPanel>
         </ScrollViewer>
+
+        <!-- SUB-PAGE CONTENT CONTROL -->
+        <ContentControl Grid.Row="1" Content="{Binding CurrentView}" 
+                        Visibility="{Binding IsHubVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
     </Grid>
 </UserControl>

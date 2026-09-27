@@ -1,161 +1,77 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using RMX3171ControlCentre.Models;
-using RMX3171ControlCentre.Services.UI;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Data;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using RMX3171ControlCentre.Models.Storage;
+using RMX3171ControlCentre.Services.Adb;
 
 namespace RMX3171ControlCentre.ViewModels.Storage
 {
     public partial class AppStorageViewModel : ViewModelBase
     {
-        private readonly Services.Telemetry.ITelemetryService _telemetryService;
-        private readonly IDialogService _dialogService;
-        
-        public event System.Action? OnBackRequested;
+        private readonly IAdbService _adbService;
+        public event Action? OnBackRequested;
+        public event Action<double>? OnTotalAppStorageUpdated;
 
-        public ObservableCollection<AppStorageInfo> AllApps { get; } = new();
+        public ObservableCollection<AppStorageItem> AllApps { get; } = new();
         public ListCollectionView AppsView { get; }
 
-        [ObservableProperty] private string _applicationStorageTotalText = "Loading...";
-        
-        [ObservableProperty] private string _searchText = "";
-        partial void OnSearchTextChanged(string value) => AppsView.Refresh();
+        [ObservableProperty] private string _scanStatusText = "No app storage scan performed.";
+        [ObservableProperty] private bool _isScanning;
+        [ObservableProperty] private bool _isLoaded;
+        [ObservableProperty] private AppStorageItem? _selectedApp;
+        partial void OnSelectedAppChanged(AppStorageItem? value) => OnPropertyChanged(nameof(HasSelectedApp));
+        public bool HasSelectedApp => SelectedApp != null;
 
+        [ObservableProperty] private string _searchQuery = "";
+        partial void OnSearchQueryChanged(string value) => AppsView.Refresh();
+
+        public ObservableCollection<string> Filters { get; } = new(new[] { "All", "User Apps", "System Apps" });
         [ObservableProperty] private string _selectedFilter = "All";
         partial void OnSelectedFilterChanged(string value) => AppsView.Refresh();
 
+        public ObservableCollection<string> SortOptions { get; } = new(new[] { "Total", "User Data", "Cache", "App Size", "Application name" });
         [ObservableProperty] private string _selectedSort = "Total";
         partial void OnSelectedSortChanged(string value) => UpdateSorting();
 
-        [ObservableProperty] private AppStorageInfo? _selectedApp;
+        private CancellationTokenSource? _scanCts;
+        private DateTime _lastScanTime = DateTime.MinValue;
+        private double _totalAppStorageGb = 0;
 
-        [ObservableProperty] private string _scanStatusText = "Scanning application storage...";
-        [ObservableProperty] private bool _isScanning = false;
-
-        public AppStorageViewModel(Services.Telemetry.ITelemetryService telemetryService, IDialogService dialogService)
+        public AppStorageViewModel(IAdbService adbService)
         {
-            _telemetryService = telemetryService;
-            _dialogService = dialogService;
-
+            _adbService = adbService;
             AppsView = new ListCollectionView(AllApps);
             AppsView.Filter = FilterApp;
             UpdateSorting();
-
-            LoadDataFromSnapshot();
-
-            _telemetryService.SnapshotUpdated += (s, e) =>
-            {
-                if (!IsScanning)
-                {
-                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
-                    if (dispatcher != null && !dispatcher.HasShutdownStarted)
-                    {
-                        dispatcher.BeginInvoke(new Action(LoadDataFromSnapshot));
-                    }
-                }
-            };
         }
 
-        private DateTime _lastLoadedStorageTime = DateTime.MinValue;
-
-        private void LoadDataFromSnapshot()
+        public async Task OnNavigatedToAsync()
         {
-            var snap = _telemetryService.CurrentSnapshot.Storage;
-            if (snap.LastUpdated == System.DateTime.MinValue)
+            if (AllApps.Count > 0 && !IsScanning)
             {
-                ScanStatusText = "Application storage scan pending...";
+                var secondsAgo = (DateTime.Now - _lastScanTime).TotalSeconds;
+                ScanStatusText = $"Last scanned: {secondsAgo:F0} seconds ago";
+                IsLoaded = true;
                 return;
             }
 
-            var secondsAgo = (System.DateTime.Now - snap.LastUpdated).TotalSeconds;
-            ScanStatusText = $"Last scanned: {secondsAgo:F0} seconds ago";
-
-            if (snap.LastUpdated == _lastLoadedStorageTime)
+            if (!IsScanning)
             {
-                // Storage has not changed since last load - skip expensive collection reconciliation
-                return;
-            }
-            _lastLoadedStorageTime = snap.LastUpdated;
-
-            ApplicationStorageTotalText = $"{snap.AppStorageGb:F1} GB";
-            
-            var oldSelected = SelectedApp?.PackageName;
-
-            // Remove apps no longer present
-            var snapAppPackages = new System.Collections.Generic.HashSet<string>(snap.TopApps.Select(a => a.PackageName));
-            for (int i = AllApps.Count - 1; i >= 0; i--)
-            {
-                if (!snapAppPackages.Contains(AllApps[i].PackageName))
-                {
-                    AllApps.RemoveAt(i);
-                }
-            }
-
-            // Fast lookup map
-            var existingMap = new System.Collections.Generic.Dictionary<string, int>();
-            for (int i = 0; i < AllApps.Count; i++)
-            {
-                existingMap[AllApps[i].PackageName] = i;
-            }
-
-            // Add or update apps
-            foreach (var snapApp in snap.TopApps)
-            {
-                if (existingMap.TryGetValue(snapApp.PackageName, out int index))
-                {
-                    var existing = AllApps[index];
-                    if (existing.SizeMb != snapApp.SizeMb || existing.CacheMb != snapApp.CacheMb || existing.UserDataMb != snapApp.UserDataMb)
-                    {
-                        AllApps[index] = snapApp;
-                    }
-                }
-                else
-                {
-                    AllApps.Add(snapApp);
-                    existingMap[snapApp.PackageName] = AllApps.Count - 1;
-                }
-            }
-
-            if (oldSelected != null && SelectedApp?.PackageName != oldSelected)
-            {
-                SelectedApp = AllApps.FirstOrDefault(a => a.PackageName == oldSelected);
+                await ScanAppsAsync();
             }
         }
 
-        private bool FilterApp(object obj)
+        public void OnNavigatedFrom()
         {
-            if (obj is not AppStorageInfo app) return false;
-
-            if (!string.IsNullOrWhiteSpace(SearchText))
-            {
-                bool matches = app.AppName.Contains(SearchText, System.StringComparison.OrdinalIgnoreCase) ||
-                               app.PackageName.Contains(SearchText, System.StringComparison.OrdinalIgnoreCase);
-                if (!matches) return false;
-            }
-
-            if (SelectedFilter == "User Apps" && app.Type != "User App") return false;
-            if (SelectedFilter == "System Apps" && app.Type != "System App") return false;
-            if (SelectedFilter == "Cached Data" && app.CacheMb <= 0) return false;
-            // "Largest" filter is basically handled by sorting, but if requested as a filter we could show > 100MB
-            if (SelectedFilter == "Largest" && app.SizeMb < 100) return false;
-
-            return true;
-        }
-
-        private void UpdateSorting()
-        {
-            AppsView.SortDescriptions.Clear();
-            if (SelectedSort == "Total")
-                AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageInfo.SizeMb), System.ComponentModel.ListSortDirection.Descending));
-            else if (SelectedSort == "User Data")
-                AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageInfo.UserDataMb), System.ComponentModel.ListSortDirection.Descending));
-            else if (SelectedSort == "Cache")
-                AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageInfo.CacheMb), System.ComponentModel.ListSortDirection.Descending));
-            else if (SelectedSort == "App Size")
-                AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageInfo.AppSizeMb), System.ComponentModel.ListSortDirection.Descending));
+            CancelScan();
         }
 
         [RelayCommand]
@@ -165,32 +81,191 @@ namespace RMX3171ControlCentre.ViewModels.Storage
         }
 
         [RelayCommand]
-        private async Task ScanAppsAsync()
+        private void CancelScan()
         {
-            if (IsScanning) return;
-            IsScanning = true;
-            ScanStatusText = "Scanning application storage...";
-            try
+            if (IsScanning && _scanCts != null)
             {
-                await _telemetryService.ForceRefreshAsync("All");
-                ScanStatusText = "Scan complete.";
-            }
-            catch (System.Exception ex)
-            {
-                ScanStatusText = "Application storage scan failed. Reason: " + ex.Message;
-            }
-            finally
-            {
-                IsScanning = false;
+                _scanCts.Cancel();
             }
         }
 
         [RelayCommand]
-        private void ModifyAction(string action)
+        private async Task ScanAppsAsync()
         {
-            _dialogService.ShowMessage("Modification Actions Disabled", 
-                "Modification actions will be enabled after read-only storage verification.\n\n" +
-                $"You selected: {action}");
+            if (IsScanning) return;
+
+            IsScanning = true;
+            IsLoaded = false;
+            ScanStatusText = "Scanning application storage...";
+            _scanCts = new CancellationTokenSource();
+            var token = _scanCts.Token;
+
+            long startMemory = GC.GetTotalMemory(false);
+            var sw = Stopwatch.StartNew();
+
+            try
+            {
+                var sysResult = await _adbService.ExecuteCommandAsync("shell pm list packages -s", true, token);
+                var sysPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (sysResult.ExitCode == 0)
+                {
+                    var lines = sysResult.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
+                    {
+                        if (line.StartsWith("package:")) sysPackages.Add(line.Substring(8));
+                    }
+                }
+                
+                token.ThrowIfCancellationRequested();
+
+                var diskResult = await _adbService.ExecuteCommandAsync("shell dumpsys diskstats", true, token);
+                if (diskResult.ExitCode != 0 || string.IsNullOrWhiteSpace(diskResult.Output))
+                {
+                    throw new Exception("dumpsys diskstats failed or returned empty.");
+                }
+
+                token.ThrowIfCancellationRequested();
+
+                var pkgs = ParseArray(diskResult.Output, "Package Names");
+                var apps = ParseArray(diskResult.Output, "App Sizes");
+                var datas = ParseArray(diskResult.Output, "App Data Sizes");
+                var caches = ParseArray(diskResult.Output, "Cache Sizes");
+
+                if (pkgs.Length == 0 || pkgs.Length != apps.Length)
+                {
+                    throw new Exception("Failed to parse diskstats arrays or length mismatch.");
+                }
+
+                var newApps = new List<AppStorageItem>();
+                double totalBytes = 0;
+
+                for (int i = 0; i < pkgs.Length; i++)
+                {
+                    string pkg = pkgs[i].Trim('"');
+                    long appSize = ParseLong(apps[i]);
+                    long dataSize = ParseLong(datas[i]);
+                    long cacheSize = ParseLong(caches[i]);
+
+                    totalBytes += appSize + dataSize + cacheSize;
+
+                    newApps.Add(new AppStorageItem
+                    {
+                        Package = pkg,
+                        Application = GetFriendlyName(pkg),
+                        Type = sysPackages.Contains(pkg) ? "System App" : "User App",
+                        AppSizeMb = appSize / 1048576.0,
+                        UserDataMb = dataSize / 1048576.0,
+                        CacheMb = cacheSize / 1048576.0
+                    });
+                }
+
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher != null && !dispatcher.HasShutdownStarted)
+                {
+                    dispatcher.Invoke(() =>
+                    {
+                        AllApps.Clear();
+                        foreach (var app in newApps) AllApps.Add(app);
+                        UpdateSorting();
+                        
+                        _lastScanTime = DateTime.Now;
+                        ScanStatusText = $"Last scanned: 0 seconds ago";
+                        IsLoaded = true;
+
+                        _totalAppStorageGb = totalBytes / 1073741824.0;
+                        OnTotalAppStorageUpdated?.Invoke(_totalAppStorageGb);
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                ScanStatusText = "Scan cancelled.";
+            }
+            catch (Exception ex)
+            {
+                ScanStatusText = $"Application storage scan failed.\nReason: {ex.Message}";
+            }
+            finally
+            {
+                IsScanning = false;
+                _scanCts?.Dispose();
+                _scanCts = null;
+
+                sw.Stop();
+                long endMemory = GC.GetTotalMemory(false);
+            }
+        }
+
+        private string[] ParseArray(string output, string arrayName)
+        {
+            var match = Regex.Match(output, $@"{arrayName}:\s*\[([^\]]+)\]");
+            if (match.Success) return match.Groups[1].Value.Split(',');
+            return Array.Empty<string>();
+        }
+
+        private long ParseLong(string val) => long.TryParse(val, out long res) ? res : 0;
+
+        private string GetFriendlyName(string packageName)
+        {
+            var mappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "com.whatsapp", "WhatsApp" },
+                { "com.google.android.apps.maps", "Google Maps" },
+                { "com.instagram.android", "Instagram" },
+                { "com.google.android.apps.photos", "Google Photos" },
+                { "com.discord", "Discord" },
+                { "com.spotify.music", "Spotify" },
+                { "com.google.android.youtube", "YouTube" },
+                { "com.android.chrome", "Google Chrome" }
+            };
+            if (mappings.TryGetValue(packageName, out var name)) return name;
+
+            var parts = packageName.Split('.');
+            var last = parts.LastOrDefault() ?? packageName;
+            if (last.Length > 1) return char.ToUpper(last[0]) + last.Substring(1);
+            return packageName;
+        }
+
+        private bool FilterApp(object obj)
+        {
+            if (obj is not AppStorageItem app) return false;
+            
+            if (!string.IsNullOrWhiteSpace(SearchQuery))
+            {
+                if (!app.Application.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) &&
+                    !app.Package.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            if (SelectedFilter == "User Apps" && app.Type != "User App") return false;
+            if (SelectedFilter == "System Apps" && app.Type != "System App") return false;
+
+            return true;
+        }
+
+        private void UpdateSorting()
+        {
+            AppsView.SortDescriptions.Clear();
+            switch (SelectedSort)
+            {
+                case "Total":
+                    AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageItem.TotalMb), System.ComponentModel.ListSortDirection.Descending));
+                    break;
+                case "User Data":
+                    AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageItem.UserDataMb), System.ComponentModel.ListSortDirection.Descending));
+                    break;
+                case "Cache":
+                    AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageItem.CacheMb), System.ComponentModel.ListSortDirection.Descending));
+                    break;
+                case "App Size":
+                    AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageItem.AppSizeMb), System.ComponentModel.ListSortDirection.Descending));
+                    break;
+                case "Application name":
+                    AppsView.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(AppStorageItem.Application), System.ComponentModel.ListSortDirection.Ascending));
+                    break;
+            }
         }
     }
 }

@@ -1,114 +1,134 @@
 <UserControl x:Class="RMX3171ControlCentre.Views.Storage.AppStorageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="900">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
-    
-    <Grid Margin="0,0,0,0">
+
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Border Grid.Row="0" Style="{StaticResource CardStyle}" Margin="0,0,0,15">
-            <StackPanel>
-                <Grid>
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="[ Back to Storage ]" Command="{Binding GoBackCommand}" Background="Transparent" Foreground="{StaticResource PrimaryBrush}" BorderThickness="0" Padding="0,0,15,0" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <TextBlock Text="APPLICATION STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <TextBlock Text="{Binding ScanStatusText}" Foreground="#FFAAAAAA" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <!-- Sub-page Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <Button Command="{Binding GoBackCommand}" Content="← Back to Storage"
+                    Background="Transparent" Foreground="{StaticResource PrimaryBrush}"
+                    BorderThickness="0" HorizontalAlignment="Left" Padding="0,0,0,10" FontSize="14"/>
+
+            <Grid Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="APPLICATION STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
+                    <TextBlock Text="{Binding ScanStatusText}" Foreground="#FFAAAAAA" FontSize="13" Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Scan Apps" Command="{Binding ScanAppsCommand}"
+                            Padding="15,8" Background="{StaticResource PrimaryBrush}" Foreground="White"
+                            BorderThickness="0" Margin="0,0,10,0"
+                            Visibility="{Binding IsScanning, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+
+                    <Button Content="Cancel Scan" Command="{Binding CancelScanCommand}"
+                            Padding="15,8" Background="#FFCC3333" Foreground="White" BorderThickness="0"
+                            Visibility="{Binding IsScanning, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!-- Table takes all remaining space -->
+                <ColumnDefinition Width="*" MinWidth="320"/>
+                <!-- Thin drag handle -->
+                <ColumnDefinition Width="5"/>
+                <!-- Details panel: 260 px default, user can resize between 0 and 320 -->
+                <ColumnDefinition Width="260" MinWidth="0" MaxWidth="320"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Loading / scanning overlay — spans all three columns -->
+            <Border Grid.Column="0" Grid.ColumnSpan="3" Background="{StaticResource BackgroundBrush}"
+                    Visibility="{Binding IsLoaded, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="{Binding IsScanning}" Value="0"
+                                 Width="200" Height="4"
+                                 Foreground="{StaticResource PrimaryBrush}" Background="#FF333333"
+                                 BorderThickness="0" Margin="0,0,0,15"/>
+                    <TextBlock Text="{Binding ScanStatusText}" Foreground="White" FontSize="16"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ Left panel: search bar + DataGrid ═══ -->
+            <Grid Grid.Column="0"
+                  Visibility="{Binding IsLoaded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Search, Filter, Sort bar -->
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="150"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox Grid.Column="0"
+                             Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Search app or package..." Padding="8,6"
+                             Background="#FF2A2A2E" Foreground="White" BorderBrush="#FF444444"/>
+
+                    <ComboBox Grid.Column="2"
+                              ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
+                              Padding="8,6" Background="#FF2A2A2E" Foreground="White" BorderBrush="#FF444444"/>
+
+                    <ComboBox Grid.Column="4"
+                              ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}"
+                              Padding="8,6" Background="#FF2A2A2E" Foreground="White" BorderBrush="#FF444444"/>
                 </Grid>
-                
-                <TextBlock Text="{Binding ApplicationStorageTotalText}" FontSize="32" FontWeight="SemiBold" Foreground="White" Margin="0,15,0,0"/>
-            </StackPanel>
-        </Border>
 
-        <!-- Controls -->
-        <Grid Grid.Row="1" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            
-            <Button Grid.Column="0" Content="[ Scan Apps ]" Command="{Binding ScanAppsCommand}" Background="Transparent" Foreground="{StaticResource PrimaryBrush}" BorderThickness="0" Padding="0,5,15,5" IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
-
-            <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" 
-                     Margin="10,0" Padding="8,6" Background="#FF1E1E1E" Foreground="White" BorderBrush="#FF444448" BorderThickness="1"
-                     VerticalContentAlignment="Center" HorizontalAlignment="Stretch" MaxWidth="300"/>
-            <TextBlock Grid.Column="1" Text="Search app or package..." Foreground="#FF666666" IsHitTestVisible="False" VerticalAlignment="Center" Margin="18,0,0,0">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SearchText}" Value="">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0,10,0" VerticalAlignment="Center">
-                <TextBlock Text="Filter:" Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                <ComboBox SelectedValue="{Binding SelectedFilter}" SelectedValuePath="Content" Background="#FF1E1E1E" Foreground="White" BorderBrush="#FF444448">
-                    <ComboBoxItem Content="All" IsSelected="True"/>
-                    <ComboBoxItem Content="User Apps"/>
-                    <ComboBoxItem Content="System Apps"/>
-                    <ComboBoxItem Content="Largest"/>
-                    <ComboBoxItem Content="Cached Data"/>
-                </ComboBox>
-            </StackPanel>
-
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,0,0,0" VerticalAlignment="Center">
-                <TextBlock Text="Sort:" Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                <ComboBox SelectedValue="{Binding SelectedSort}" SelectedValuePath="Content" Background="#FF1E1E1E" Foreground="White" BorderBrush="#FF444448">
-                    <ComboBoxItem Content="Total" IsSelected="True"/>
-                    <ComboBoxItem Content="User Data"/>
-                    <ComboBoxItem Content="Cache"/>
-                    <ComboBoxItem Content="App Size"/>
-                </ComboBox>
-            </StackPanel>
-        </Grid>
-
-        <!-- Main Content Split -->
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="10"/>
-                <ColumnDefinition Width="1*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- DataGrid -->
-            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
-                <DataGrid ItemsSource="{Binding AppsView}" SelectedItem="{Binding SelectedApp}" AutoGenerateColumns="False" 
-                          Background="Transparent" BorderThickness="0" SelectionMode="Single"
-                          RowBackground="Transparent" AlternatingRowBackground="#FF2A2A2E"
-                          HeadersVisibility="Column" IsReadOnly="True" GridLinesVisibility="None" Foreground="White">
+                <!-- Virtualized DataGrid -->
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding AppsView}" SelectedItem="{Binding SelectedApp}"
+                          AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                          Background="{StaticResource CardBrush}" BorderThickness="0"
+                          RowBackground="Transparent" AlternatingRowBackground="#FF222225"
+                          GridLinesVisibility="None" Foreground="White"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          CanUserResizeColumns="True"
+                          CanUserReorderColumns="False"
+                          CanUserSortColumns="False"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          SelectionMode="Single" SelectionUnit="FullRow">
                     <DataGrid.Resources>
                         <Style TargetType="DataGridColumnHeader">
                             <Setter Property="Background" Value="#FF333337"/>
                             <Setter Property="Foreground" Value="#FFAAAAAA"/>
                             <Setter Property="Padding" Value="10,8"/>
-                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                            <Setter Property="BorderBrush" Value="#FF444448"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="SeparatorBrush" Value="#FF555558"/>
                         </Style>
                         <Style TargetType="DataGridCell">
-                            <Setter Property="Padding" Value="10,8"/>
+                            <Setter Property="Padding" Value="10,7"/>
+                            <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="DataGridCell">
-                                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                        <Border Padding="{TemplateBinding Padding}"
+                                                Background="{TemplateBinding Background}">
                                             <ContentPresenter VerticalAlignment="Center"/>
                                         </Border>
                                     </ControlTemplate>
@@ -116,107 +136,157 @@
                             </Setter>
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#FF007ACC"/>
+                                    <Setter Property="Background" Value="#FF005599"/>
                                     <Setter Property="Foreground" Value="White"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="MinHeight" Value="34"/>
+                        </Style>
                     </DataGrid.Resources>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Application" Binding="{Binding AppName}" Width="*"/>
-                        <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
-                        <DataGridTextColumn Header="App Size" Binding="{Binding AppSizeMb, StringFormat={}{0:F1} MB}" Width="90"/>
-                        <DataGridTextColumn Header="User Data" Binding="{Binding UserDataMb, StringFormat={}{0:F1} MB}" Width="90"/>
-                        <DataGridTextColumn Header="Cache" Binding="{Binding CacheMb, StringFormat={}{0:F1} MB}" Width="90"/>
-                        <DataGridTextColumn Header="Total" Binding="{Binding SizeMb, StringFormat={}{0:F1} MB}" Width="90">
+                        <!-- Application: widest star column — fits "Google Photos", "WhatsApp" etc. -->
+                        <DataGridTextColumn Header="Application" Binding="{Binding Application}"
+                                            Width="1.6*" MinWidth="130" CanUserResize="True"/>
+
+                        <!-- Package: star-sized, narrower than Application -->
+                        <DataGridTextColumn Header="Package" Binding="{Binding Package}"
+                                            Width="2*" MinWidth="170" CanUserResize="True"/>
+
+                        <!-- Type: compact fixed -->
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type}"
+                                            Width="90" MinWidth="70" CanUserResize="True"/>
+
+                        <!-- Numeric columns: right-aligned, auto-fit to header text -->
+                        <DataGridTextColumn Header="App Size" Binding="{Binding AppSizeText}"
+                                            Width="SizeToHeader" MinWidth="76" CanUserResize="True">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter Property="Margin" Value="0,0,8,0"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="User Data" Binding="{Binding UserDataText}"
+                                            Width="SizeToHeader" MinWidth="76" CanUserResize="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter Property="Margin" Value="0,0,8,0"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="Cache" Binding="{Binding CacheText}"
+                                            Width="SizeToHeader" MinWidth="72" CanUserResize="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter Property="Margin" Value="0,0,8,0"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Total: accent-coloured and bold to stand out -->
+                        <DataGridTextColumn Header="Total" Binding="{Binding TotalText}"
+                                            Width="SizeToHeader" MinWidth="76" CanUserResize="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
                                     <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                    <Setter Property="Margin" Value="0,0,8,0"/>
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
-            </Border>
+            </Grid>
 
-            <!-- Details Pane -->
-            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+            <!-- Draggable divider between table and details panel -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
+                          Background="#FF3A3A3D" Cursor="SizeWE"
+                          ResizeBehavior="PreviousAndNext"
+                          Visibility="{Binding IsLoaded, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <!-- ═══ Right panel: App Details ═══ -->
+            <Border Grid.Column="2" Style="{StaticResource CardStyle}"
+                    Visibility="{Binding IsLoaded, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid>
-                    <TextBlock Text="Select an application to view details." Foreground="#FF888888" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedApp}" Value="{x:Null}">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ScrollViewer.Style>
-                            <Style TargetType="ScrollViewer">
-                                <Setter Property="Visibility" Value="Visible"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedApp}" Value="{x:Null}">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ScrollViewer.Style>
-                        <StackPanel>
-                            <TextBlock Text="APP DETAILS" FontSize="14" FontWeight="Bold" Foreground="#FF888888" Margin="0,0,0,15"/>
+                    <!-- Empty state hint -->
+                    <TextBlock Text="Select an app to view details."
+                               Foreground="#FF888888" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="16"
+                               Visibility="{Binding HasSelectedApp, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
 
-                            <TextBlock Text="{Binding SelectedApp.AppName}" FontSize="20" FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding SelectedApp.PackageName}" FontSize="12" Foreground="#FFAAAAAA" Margin="0,2,0,15" TextWrapping="Wrap"/>
-                            
-                            <!-- Properties Grid -->
-                            <Grid Margin="0,0,0,20">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+                    <!-- Details content -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding HasSelectedApp, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Margin="14">
+                            <TextBlock Text="{Binding SelectedApp.Application}"
+                                       FontSize="18" FontWeight="SemiBold" Foreground="White"
+                                       Margin="0,0,0,4" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SelectedApp.Package}"
+                                       FontSize="12" Foreground="#FF888888"
+                                       Margin="0,0,0,12" TextWrapping="Wrap"/>
 
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Type:" Foreground="#FF888888" Margin="0,4"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedApp.Type}" Foreground="White" Margin="0,4"/>
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="App Size:" Foreground="#FF888888" Margin="0,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedApp.AppSizeMb, StringFormat={}{0:F1} MB}" Foreground="White" Margin="0,4"/>
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="User Data:" Foreground="#FF888888" Margin="0,4"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedApp.UserDataMb, StringFormat={}{0:F1} MB}" Foreground="White" Margin="0,4"/>
-
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Cache:" Foreground="#FF888888" Margin="0,4"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedApp.CacheMb, StringFormat={}{0:F1} MB}" Foreground="White" Margin="0,4"/>
-
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Total:" Foreground="#FF888888" Margin="0,4" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedApp.SizeMb, StringFormat={}{0:F1} MB}" Foreground="White" Margin="0,4" FontWeight="SemiBold"/>
-                            </Grid>
-
-                            <Border Background="#FF333337" Padding="10" CornerRadius="4" Margin="0,0,0,20">
-                                <TextBlock Text="Version, UID, and precise install location are not exposed in this ADB method. Android 11 restricts some metadata." 
-                                           Foreground="#FFAAAAAA" TextWrapping="Wrap" FontSize="11"/>
+                            <Border Background="#FF333337" CornerRadius="4" Padding="7,3"
+                                    HorizontalAlignment="Left" Margin="0,0,0,20">
+                                <TextBlock Text="{Binding SelectedApp.Type}" Foreground="White" FontSize="12"/>
                             </Border>
 
-                            <!-- Actions -->
-                            <TextBlock Text="MODIFICATION ACTIONS" FontSize="14" FontWeight="Bold" Foreground="#FF888888" Margin="0,0,0,10"/>
-                            <TextBlock Text="Modification actions will be enabled after read-only storage verification." 
-                                       Foreground="Orange" TextWrapping="Wrap" Margin="0,0,0,15" FontSize="12"/>
+                            <!-- Row: App Size -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="App Size:" Foreground="#FFAAAAAA" FontSize="13"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedApp.AppSizeText}"
+                                           Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                            </Grid>
 
-                            <Button Content="Clear Cache" Command="{Binding ModifyActionCommand}" CommandParameter="Clear Cache" Background="#FF333333" Foreground="White" BorderThickness="1" BorderBrush="#FF555555" Padding="10,8" Margin="0,0,0,10" HorizontalContentAlignment="Left"/>
-                            <Button Content="Clear App Data" Command="{Binding ModifyActionCommand}" CommandParameter="Clear App Data" Background="#FF333333" Foreground="#FFFF6666" BorderThickness="1" BorderBrush="#FF555555" Padding="10,8" Margin="0,0,0,10" HorizontalContentAlignment="Left"/>
-                            <Button Content="Uninstall" Command="{Binding ModifyActionCommand}" CommandParameter="Uninstall" Background="#FF333333" Foreground="#FFFF6666" BorderThickness="1" BorderBrush="#FF555555" Padding="10,8" Margin="0,0,0,10" HorizontalContentAlignment="Left"/>
+                            <!-- Row: User Data -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="User Data:" Foreground="#FFAAAAAA" FontSize="13"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedApp.UserDataText}"
+                                           Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                            </Grid>
 
+                            <!-- Row: Cache -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Cache:" Foreground="#FFAAAAAA" FontSize="13"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedApp.CacheText}"
+                                           Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                            </Grid>
+
+                            <Border Height="1" Background="#FF444444" Margin="0,6,0,16"/>
+
+                            <!-- Row: Total -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Total:" Foreground="#FFAAAAAA" FontSize="15"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedApp.TotalText}"
+                                           Foreground="{StaticResource PrimaryBrush}"
+                                           FontWeight="Bold" FontSize="15"/>
+                            </Grid>
+
+                            <TextBlock Text="{Binding ScanStatusText}" Foreground="#FF666666"
+                                       FontSize="11" Margin="0,20,0,0" FontStyle="Italic"
+                                       TextWrapping="Wrap"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
