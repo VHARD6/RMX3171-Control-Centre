@@ -1,235 +1,113 @@
 <UserControl x:Class="RMX3171ControlCentre.Views.StorageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:localViewModels="clr-namespace:RMX3171ControlCentre.ViewModels.Storage"
-             xmlns:localViews="clr-namespace:RMX3171ControlCentre.Views.Storage">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <DataTemplate DataType="{x:Type localViewModels:AppStorageViewModel}">
-            <localViews:AppStorageView />
-        </DataTemplate>
     </UserControl.Resources>
-    
-    <Grid Margin="15">
+
+    <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <TextBlock Text="Storage Manager" Foreground="White" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            <Button Content="Refresh Now" Command="{Binding RefreshStorageCommand}" Margin="20,0,0,0" Padding="15,8" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" VerticalAlignment="Center" IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
-            <TextBlock Text="Refreshing..." Foreground="Orange" VerticalAlignment="Center" Margin="15,0,0,0" Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <TextBlock Text="{Binding LastUpdatedText}" Foreground="#FF888888" VerticalAlignment="Center" Margin="15,0,0,0"/>
-        </StackPanel>
 
-        <!-- Navigation Breadcrumbs -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,20">
-            <TextBlock Text="{Binding NavigationPath}" Foreground="#FFAAAAAA" FontSize="14"/>
-            <Button Content="[ Return to Overview ]" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Hub" Background="Transparent" Foreground="{StaticResource PrimaryBrush}" BorderThickness="0" Margin="10,0,0,0"
-                    Visibility="{Binding IsHubVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
-        </StackPanel>
+        <!-- Top Header & Refresh Bar -->
+        <Grid Grid.Row="0" Margin="0,0,0,25">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- MAIN HUB -->
-        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Visibility="{Binding IsHubVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <StackPanel>
-                
-                <!-- Main Internal Storage -->
-                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20">
-                    <StackPanel>
-                        <Grid>
-                            <TextBlock Text="INTERNAL STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                            <TextBlock Text="{Binding HealthIndicatorText}" Foreground="{Binding HealthIndicatorColor}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Storage Overview" Foreground="White" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LastUpdatedText}" Foreground="#FF888888" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="14"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Refreshing..." Foreground="Orange" VerticalAlignment="Center" Margin="0,0,15,0"
+                           Visibility="{Binding IsRefreshing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+                <Button Content="Refresh Now" Command="{Binding RefreshStorageCommand}" Padding="16,8"
+                        Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0"
+                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBooleanConverter}, FallbackValue=True}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Content Area -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="800" HorizontalAlignment="Left">
+
+                <!-- Loading State Card -->
+                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="10,25" HorizontalAlignment="Center">
+                        <ProgressBar IsIndeterminate="True" Width="220" Height="4" Margin="0,0,0,15"
+                                     Foreground="{StaticResource PrimaryBrush}" Background="#FF333333" BorderThickness="0"/>
+                        <TextBlock Text="{Binding LoadingStatusText}" Foreground="White" FontSize="16" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Unavailable State Card -->
+                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20"
+                        Visibility="{Binding IsUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="10,25" HorizontalAlignment="Center">
+                        <TextBlock Text="INTERNAL STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Text="{Binding LoadingStatusText}" Foreground="#FFAAAAAA" FontSize="15" HorizontalAlignment="Center" Margin="0,0,15,0"/>
+                        <Button Content="Retry" Command="{Binding RefreshStorageCommand}" Margin="0,15,0,0" Padding="16,6"
+                                Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Main Storage Card -->
+                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20"
+                        Visibility="{Binding IsLoaded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="5">
+                        <!-- Card Title & Status Badge -->
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="INTERNAL STORAGE" FontSize="14" FontWeight="Bold" Foreground="#FF888888" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding HealthIndicatorText}" Foreground="{Binding HealthIndicatorColor}" 
+                                       HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
                         </Grid>
 
-                        <TextBlock Text="{Binding InternalSummary}" FontSize="32" FontWeight="SemiBold" Foreground="White" Margin="0,15,0,5"/>
-                        
-                        <ProgressBar Value="{Binding InternalUsagePercent}" Minimum="0" Maximum="100" Height="25" Margin="0,10,0,10" Foreground="{StaticResource PrimaryBrush}" Background="#FF333333" BorderThickness="0"/>
-                        
-                        <Grid>
+                        <!-- Large Summary: XX.X GB / XX.X GB used -->
+                        <TextBlock Text="{Binding InternalSummary}" FontSize="32" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,15"/>
+
+                        <!-- Storage Progress Bar -->
+                        <ProgressBar Value="{Binding UsagePercent}" Minimum="0" Maximum="100" Height="22" Margin="0,0,0,20"
+                                     Foreground="{StaticResource PrimaryBrush}" Background="#FF333333" BorderThickness="0"/>
+
+                        <!-- Details Row: Total, Used, Free, Usage -->
+                        <Grid Margin="0,5,0,5">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            
+
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Used" Foreground="#FF888888" FontSize="12"/>
-                                <TextBlock Text="{Binding InternalUsed}" Foreground="White" FontWeight="SemiBold" FontSize="16"/>
+                                <TextBlock Text="Total:" Foreground="#FF888888" FontSize="13" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding TotalGbText}" Foreground="White" FontWeight="SemiBold" FontSize="18"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                <TextBlock Text="Usage" Foreground="#FF888888" FontSize="12" HorizontalAlignment="Center"/>
-                                <TextBlock Text="{Binding InternalUsageText}" Foreground="White" FontWeight="SemiBold" FontSize="16" HorizontalAlignment="Center"/>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Used:" Foreground="#FF888888" FontSize="13" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding UsedGbText}" Foreground="White" FontWeight="SemiBold" FontSize="18"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Free" Foreground="#FF888888" FontSize="12" HorizontalAlignment="Right"/>
-                                <TextBlock Text="{Binding InternalFree}" Foreground="White" FontWeight="SemiBold" FontSize="16" HorizontalAlignment="Right"/>
+                                <TextBlock Text="Free:" Foreground="#FF888888" FontSize="13" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding FreeGbText}" Foreground="White" FontWeight="SemiBold" FontSize="18"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="Usage:" Foreground="#FF888888" FontSize="13" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding UsagePercentText}" Foreground="White" FontWeight="SemiBold" FontSize="18"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>
 
-                <!-- Category Grid -->
-                <Grid Margin="0,0,0,20">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    
-                    <!-- Row 0 -->
-                    <Button Grid.Row="0" Grid.Column="0" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Apps" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="Apps" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding AppStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-                    
-                    <Button Grid.Row="0" Grid.Column="2" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Photos" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="Photos" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding PhotosStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <Button Grid.Row="0" Grid.Column="4" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Videos" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="Videos" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding VideosStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <!-- Row 2 -->
-                    <Button Grid.Row="2" Grid.Column="0" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Documents" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="Documents" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding DocumentsStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <Button Grid.Row="2" Grid.Column="2" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Downloads" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="Downloads" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding DownloadsStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <Button Grid.Row="2" Grid.Column="4" Command="{Binding NavigateToCategoryCommand}" CommandParameter="APKs" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="APKs" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding ApksStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-
-                    <!-- Row 4 -->
-                    <Button Grid.Row="4" Grid.Column="0" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Other" Background="Transparent" BorderThickness="0" Padding="0">
-                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
-                            <StackPanel VerticalAlignment="Center" Margin="10">
-                                <TextBlock Text="Other" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
-                                <TextBlock Text="{Binding OtherStorageText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </Button>
-                </Grid>
-
-                <Button Content="[ Review Cleanup Opportunities ]" Command="{Binding NavigateToCategoryCommand}" CommandParameter="Cleanup" Margin="0,0,0,20" Background="#FF007ACC" Foreground="White" BorderThickness="0" Padding="15,10" HorizontalAlignment="Left" FontSize="14" FontWeight="Bold"/>
-
-                <!-- Advanced Storage Information Toggle -->
-                <Button Command="{Binding ToggleAdvancedCommand}" Margin="0,10,0,10" Background="Transparent" BorderThickness="0" HorizontalAlignment="Left" Padding="10,5">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="[ Advanced Storage Information ]" Foreground="{StaticResource PrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- Advanced View -->
-                <Border Style="{StaticResource CardStyle}" Visibility="{Binding IsAdvancedVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel>
-                        <TextBlock Text="Android uses several read-only/system partitions that may legitimately report 100% usage. These partitions are separate from your user-accessible storage." 
-                                   Foreground="#FF888888" TextWrapping="Wrap" Margin="0,0,0,15"/>
-                        
-                        <DataGrid ItemsSource="{Binding AdvancedMounts}" AutoGenerateColumns="False" 
-                                  Background="Transparent" BorderThickness="0"
-                                  RowBackground="Transparent" AlternatingRowBackground="#FF2A2A2E"
-                                  HeadersVisibility="Column" IsReadOnly="True" GridLinesVisibility="None" Foreground="White">
-                            <DataGrid.Resources>
-                                <Style TargetType="DataGridColumnHeader">
-                                    <Setter Property="Background" Value="#FF333337"/>
-                                    <Setter Property="Foreground" Value="#FFAAAAAA"/>
-                                    <Setter Property="Padding" Value="10,8"/>
-                                </Style>
-                                <Style TargetType="DataGridCell">
-                                    <Setter Property="Padding" Value="10,8"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="DataGridCell">
-                                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
-                                                    <ContentPresenter VerticalAlignment="Center"/>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </DataGrid.Resources>
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Filesystem" Binding="{Binding Filesystem}" Width="180"/>
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="120"/>
-                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="80"/>
-                                <DataGridTextColumn Header="Used" Binding="{Binding Used}" Width="80"/>
-                                <DataGridTextColumn Header="Free" Binding="{Binding Free}" Width="80"/>
-                                <DataGridTextColumn Header="Usage" Binding="{Binding Usage}" Width="80"/>
-                                <DataGridTextColumn Header="Mounted On" Binding="{Binding MountedOn}" Width="*"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </StackPanel>
-                </Border>
-                
-                <!-- Raw Output Toggle -->
-                <Button Command="{Binding ToggleRawOutputCommand}" Margin="0,10,0,10" Background="Transparent" BorderThickness="0" HorizontalAlignment="Left" Padding="10,5">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="[ Raw ADB Output ]" Foreground="{StaticResource PrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
-                    </StackPanel>
-                </Button>
-
-                <Border Style="{StaticResource CardStyle}" Visibility="{Binding IsRawOutputVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel>
-                        <TextBlock Text="Raw df -h output:" Foreground="#FF888888" Margin="0,0,0,5"/>
-                        <TextBox Text="{Binding RawDfOutput}" IsReadOnly="True" FontFamily="Consolas" Foreground="White" Background="#FF1E1E1E" BorderThickness="1" BorderBrush="#FF333333" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" MaxHeight="300" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20"/>
-                        
-                        <TextBlock Text="Raw dumpsys diskstats output:" Foreground="#FF888888" Margin="0,0,0,5"/>
-                        <TextBox Text="{Binding RawDiskstatsOutput}" IsReadOnly="True" FontFamily="Consolas" Foreground="White" Background="#FF1E1E1E" BorderThickness="1" BorderBrush="#FF333333" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" MaxHeight="300" VerticalScrollBarVisibility="Auto"/>
-                    </StackPanel>
-                </Border>
-                
-                <Border Height="30"/>
             </StackPanel>
         </ScrollViewer>
-        
-        <!-- SUB-PAGE CONTENT CONTROL -->
-        <ContentControl Grid.Row="2" Content="{Binding CurrentView}" Visibility="{Binding IsHubVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
     </Grid>
 </UserControl>

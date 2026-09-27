@@ -189,6 +189,10 @@ namespace RMX3171ControlCentre.ViewModels
             {
                 _ = DeviceInfoVM.LoadPropertiesCommand.ExecuteAsync(null);
             }
+            if (viewName == "Storage")
+            {
+                _ = StorageVM.EnsureLoadedAsync();
+            }
         }
     }
 }
