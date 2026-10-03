@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -35,21 +35,37 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty] private string _appStorageTotalText = "Scan required";
         [ObservableProperty] private string _photoStorageTotalText = "Scan required";
         [ObservableProperty] private string _videoStorageTotalText = "Scan required";
+        [ObservableProperty] private string _documentStorageTotalText = "Scan required";
 
         private readonly AppStorageViewModel _appStorageViewModel;
         private readonly PhotosStorageViewModel _photosStorageViewModel;
         private readonly VideosStorageViewModel _videosStorageViewModel;
+        private readonly DocumentsStorageViewModel _documentsStorageViewModel;
 
         public StorageViewModel(
             ITelemetryService telemetryService,
             AppStorageViewModel appStorageViewModel,
             PhotosStorageViewModel photosStorageViewModel,
-            VideosStorageViewModel videosStorageViewModel)
+            VideosStorageViewModel videosStorageViewModel,
+            DocumentsStorageViewModel documentsStorageViewModel)
         {
             _telemetryService = telemetryService;
             _appStorageViewModel = appStorageViewModel;
             _photosStorageViewModel = photosStorageViewModel;
             _videosStorageViewModel = videosStorageViewModel;
+            _documentsStorageViewModel = documentsStorageViewModel;
+
+            _documentsStorageViewModel.OnBackRequested += () =>
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+                _documentsStorageViewModel.OnNavigatedFrom();
+            };
+
+            _documentsStorageViewModel.OnTotalDocumentStorageUpdated += (totalGb, count) =>
+            {
+                DocumentStorageTotalText = $"{totalGb:F2} GB";
+            };
 
             _appStorageViewModel.OnBackRequested += () => 
             {
@@ -125,6 +141,14 @@ namespace RMX3171ControlCentre.ViewModels
             IsHubVisible = false;
             CurrentView = _videosStorageViewModel;
             await _videosStorageViewModel.OnNavigatedToAsync();
+        }
+
+                [RelayCommand]
+        private async Task NavigateToDocumentsAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _documentsStorageViewModel;
+            await _documentsStorageViewModel.OnNavigatedToAsync();
         }
 
         public async Task EnsureLoadedAsync()
@@ -248,3 +272,5 @@ namespace RMX3171ControlCentre.ViewModels
         }
     }
 }
+
+

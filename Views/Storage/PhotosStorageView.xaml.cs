@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
@@ -391,6 +391,28 @@ namespace RMX3171ControlCentre.Views.Storage
 
         // --- PHOTO CARD INTERACTION ---
 
+                private void FolderCard_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is PhotoFolderGroup group && group.SampleItem != null)
+            {
+                if (DataContext is PhotosStorageViewModel vm)
+                {
+                    vm.ThumbnailLoader.RequestThumbnail(group.SampleItem);
+                }
+            }
+        }
+
+        private void FolderCard_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is PhotoFolderGroup group && group.SampleItem != null)
+            {
+                if (DataContext is PhotosStorageViewModel vm)
+                {
+                    vm.ThumbnailLoader.CancelRequest(group.SampleItem);
+                }
+            }
+        }
+
         private void PhotoCard_Loaded(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement fe && fe.DataContext is PhotoItem photo)
@@ -484,3 +506,4 @@ namespace RMX3171ControlCentre.Views.Storage
         }
     }
 }
+

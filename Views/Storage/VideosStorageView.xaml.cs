@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -98,7 +98,7 @@ namespace RMX3171ControlCentre.Views.Storage
                     VideoPlayer.Volume = VolumeSlider.Value;
                     VideoPlayer.Play();
                     _positionTimer.Start();
-                    PlayPauseButton.Content = "⏸";
+                    PlayPauseButton.Content = "â¸";
                 }
                 else
                 {
@@ -111,7 +111,7 @@ namespace RMX3171ControlCentre.Views.Storage
             }
         }
 
-        // ─── Rotation detection via lightweight MP4 binary parsing ──────────────
+        // â”€â”€â”€ Rotation detection via lightweight MP4 binary parsing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private static double GetVideoRotationDegrees(string filePath)
         {
             try
@@ -205,22 +205,22 @@ namespace RMX3171ControlCentre.Views.Storage
         private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
         {
             VideoPlayer.Stop();
-            PlayPauseButton.Content = "▶";
+            PlayPauseButton.Content = "â–¶";
         }
 
         private void PlayPauseButton_Click(object sender, RoutedEventArgs e)
         {
             if (VideoPlayer.Source == null) return;
             
-            if (PlayPauseButton.Content.ToString() == "⏸")
+            if (PlayPauseButton.Content.ToString() == "â¸")
             {
                 VideoPlayer.Pause();
-                PlayPauseButton.Content = "▶";
+                PlayPauseButton.Content = "â–¶";
             }
             else
             {
                 VideoPlayer.Play();
-                PlayPauseButton.Content = "⏸";
+                PlayPauseButton.Content = "â¸";
             }
         }
 
@@ -293,6 +293,22 @@ namespace RMX3171ControlCentre.Views.Storage
             ViewModel.UpdateGridColumns(columns);
         }
 
+                private void FolderCard_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is VideoFolderGroup group && group.SampleItem != null)
+            {
+                ViewModel?.ThumbnailLoader.RequestThumbnail(group.SampleItem);
+            }
+        }
+
+        private void FolderCard_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is VideoFolderGroup group && group.SampleItem != null)
+            {
+                ViewModel?.ThumbnailLoader.CancelRequest(group.SampleItem);
+            }
+        }
+
         private void VideoCard_Loaded(object sender, RoutedEventArgs e)
         {
             if (sender is Border border && border.DataContext is VideoItem item)
@@ -359,3 +375,4 @@ namespace RMX3171ControlCentre.Views.Storage
         }
     }
 }
+

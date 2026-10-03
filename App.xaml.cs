@@ -43,6 +43,7 @@ namespace RMX3171ControlCentre
             services.AddTransient<ViewModels.Storage.AppStorageViewModel>();
             services.AddTransient<ViewModels.Storage.PhotosStorageViewModel>();
             services.AddTransient<ViewModels.Storage.VideosStorageViewModel>();
+            services.AddTransient<ViewModels.Storage.DocumentsStorageViewModel>();
             services.AddTransient<BatteryViewModel>();
             services.AddTransient<LogsViewModel>();
             services.AddTransient<CapacityTesterViewModel>();

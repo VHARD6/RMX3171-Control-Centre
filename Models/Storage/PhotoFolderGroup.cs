@@ -1,4 +1,4 @@
-namespace RMX3171ControlCentre.Models.Storage
+﻿namespace RMX3171ControlCentre.Models.Storage
 {
     public class PhotoFolderGroup
     {
@@ -6,6 +6,7 @@ namespace RMX3171ControlCentre.Models.Storage
         public int PhotoCount { get; set; }
         public long TotalSizeBytes { get; set; }
         public string SamplePath { get; set; } = string.Empty;
+        public PhotoItem? SampleItem { get; set; }
         
         public StorageLocation Location { get; set; } = StorageLocation.Unknown;
         public string VolumeId { get; set; } = string.Empty;
@@ -30,3 +31,4 @@ namespace RMX3171ControlCentre.Models.Storage
         }
     }
 }
+
