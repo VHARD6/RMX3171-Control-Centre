@@ -30,6 +30,9 @@
         <DataTemplate DataType="{x:Type viewmodels:MemoryManagerViewModel}">
             <views:MemoryManagerView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:CacheManagerViewModel}">
+            <views:CacheManagerView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type viewmodels:AppManagerViewModel}">
             <views:AppManagerView />
         </DataTemplate>
@@ -61,6 +64,7 @@
                 <Button Content="Battery" Command="{Binding NavigateCommand}" CommandParameter="Battery" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Discharge Test" Command="{Binding NavigateCommand}" CommandParameter="Capacity" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Task Manager" Command="{Binding NavigateCommand}" CommandParameter="Memory" Margin="10,5" HorizontalAlignment="Stretch"/>
+                <Button Content="Cache Cleaner" Command="{Binding NavigateCommand}" CommandParameter="Cache" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="App Manager" Command="{Binding NavigateCommand}" CommandParameter="AppManager" Margin="10,5" HorizontalAlignment="Stretch"/>
                 <Button Content="Logs" Command="{Binding NavigateCommand}" CommandParameter="Logs" Margin="10,5" HorizontalAlignment="Stretch"/>
                 

@@ -1,0 +1,166 @@
+<UserControl x:Class="RMX3171ControlCentre.Views.Storage.CleanupOpportunitiesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:converters="clr-namespace:RMX3171ControlCentre.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800"
+             Background="Transparent">
+             
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <Button Command="{Binding GoBackCommand}" Content="&#x2190; Back to Storage"
+                    Background="Transparent" Foreground="{StaticResource PrimaryBrush}"
+                    BorderThickness="0" HorizontalAlignment="Left" Padding="0,0,0,10" FontSize="14" Cursor="Hand"/>
+
+            <Border Style="{StaticResource CardStyle}" Margin="0,5,0,0">
+                <Grid Margin="12,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Cleanup Opportunities (Read-Only Analysis)" Foreground="White" FontSize="18" FontWeight="Bold"/>
+                        <TextBlock Text="Review large, old, or duplicate files identified across your storage." Foreground="#FFAAAAAA" FontSize="12" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding AnalysisStatusText}" Foreground="{StaticResource PrimaryBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsAnalyzing, Converter={StaticResource InverseBooleanToVisibilityConverter}}" Margin="0,0,15,0">
+                        <TextBlock Text="Sort by:" Foreground="#FFAAAAAA" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox Width="180" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}" Padding="8,4" Background="#FF2A2A2E" Foreground="White" BorderBrush="#FF444444"/>
+                    </StackPanel>
+                    
+                    <Button Grid.Column="2" Content="Delete Selected" Command="{Binding DeleteSelectedCommand}" Background="#FFCC3333" Foreground="White" FontWeight="Bold" BorderThickness="0" Padding="15,6" Cursor="Hand" Margin="0,0,15,0" Visibility="{Binding CanDelete, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center" Visibility="{Binding IsAnalyzing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ProgressBar IsIndeterminate="True" Width="100" Height="4" Foreground="{StaticResource PrimaryBrush}" Background="#FF333333" BorderThickness="0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- Main Area -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Background="#FF1E1E20" Padding="0">
+            <DataGrid ItemsSource="{Binding Candidates}"
+                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                      IsReadOnly="False" HeadersVisibility="Column" SelectionMode="Single"
+                      Background="Transparent" RowBackground="#FF1E1E20" AlternatingRowBackground="#FF252528"
+                      BorderThickness="0" GridLinesVisibility="None">
+                <DataGrid.Resources>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#FF2D2D30"/>
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                        <Setter Property="BorderBrush" Value="#FF444444"/>
+                    </Style>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#33007ACC"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Resources>
+                
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="40">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
+                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#FFAAAAAA"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    
+                    <DataGridTextColumn Header="Name" Binding="{Binding FileName}" Width="250" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    
+                    <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="80" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="White"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    
+                    <DataGridTextColumn Header="Modified" Binding="{Binding DateModifiedText}" Width="130" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#FFAAAAAA"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    
+                    <DataGridTextColumn Header="Risk Level" Binding="{Binding RecommendationLevel}" Width="120" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#FFFFD700"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTemplateColumn Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Preview" 
+                                        Command="{Binding DataContext.PreviewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                        CommandParameter="{Binding}"
+                                        Background="#FF007ACC" Foreground="White" BorderThickness="0" Padding="10,4" Margin="5" Cursor="Hand"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

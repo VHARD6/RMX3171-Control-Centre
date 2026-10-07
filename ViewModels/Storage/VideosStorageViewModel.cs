@@ -28,7 +28,7 @@ namespace RMX3171ControlCentre.ViewModels.Storage
 
         public event Action? OnBackRequested;
         public event Action<double, int>? OnTotalVideoStorageUpdated;
-
+        
         // Models
         public ObservableCollection<VideoFolderGroup> FolderGroups { get; } = new();
         public ListCollectionView FolderGroupsView { get; }
@@ -61,6 +61,11 @@ namespace RMX3171ControlCentre.ViewModels.Storage
 
         // Viewer States
         [ObservableProperty] private bool _viewerVisible;
+        public event Action? OnViewerClosed;
+        partial void OnViewerVisibleChanged(bool value)
+        {
+            if (!value) OnViewerClosed?.Invoke();
+        }
         [ObservableProperty] private bool _viewerIsLoading;
         [ObservableProperty] private string _viewerLoadingText = "Preparing video...";
         [ObservableProperty] private VideoItem? _viewerVideo;
@@ -205,7 +210,7 @@ namespace RMX3171ControlCentre.ViewModels.Storage
             }
 
             ViewerVisible = false;
-            
+                        
             if (ViewerLocalPath != null)
             {
                 string pathToDelete = ViewerLocalPath;

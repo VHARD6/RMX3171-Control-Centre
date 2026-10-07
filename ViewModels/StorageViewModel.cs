@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿﻿﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -36,24 +36,42 @@ namespace RMX3171ControlCentre.ViewModels
         [ObservableProperty] private string _photoStorageTotalText = "Scan required";
         [ObservableProperty] private string _videoStorageTotalText = "Scan required";
         [ObservableProperty] private string _documentStorageTotalText = "Scan required";
+        [ObservableProperty] private string _downloadStorageTotalText = "Scan required";
+        [ObservableProperty] private string _apkStorageTotalText = "Scan required";
+        [ObservableProperty] private string _otherStorageTotalText = "Scan required";
 
         private readonly AppStorageViewModel _appStorageViewModel;
         private readonly PhotosStorageViewModel _photosStorageViewModel;
         private readonly VideosStorageViewModel _videosStorageViewModel;
         private readonly DocumentsStorageViewModel _documentsStorageViewModel;
+        private readonly DownloadsStorageViewModel _downloadsStorageViewModel;
+        private readonly ApksStorageViewModel _apksStorageViewModel;
+        private readonly OtherStorageViewModel _otherStorageViewModel;
+        private readonly CleanupOpportunitiesViewModel _cleanupOpportunitiesViewModel;
+        private readonly StorageInsightsViewModel _storageInsightsViewModel;
 
         public StorageViewModel(
             ITelemetryService telemetryService,
             AppStorageViewModel appStorageViewModel,
             PhotosStorageViewModel photosStorageViewModel,
             VideosStorageViewModel videosStorageViewModel,
-            DocumentsStorageViewModel documentsStorageViewModel)
+            DocumentsStorageViewModel documentsStorageViewModel,
+            DownloadsStorageViewModel downloadsStorageViewModel,
+            ApksStorageViewModel apksStorageViewModel,
+            OtherStorageViewModel otherStorageViewModel,
+            CleanupOpportunitiesViewModel cleanupOpportunitiesViewModel,
+            StorageInsightsViewModel storageInsightsViewModel)
         {
             _telemetryService = telemetryService;
             _appStorageViewModel = appStorageViewModel;
             _photosStorageViewModel = photosStorageViewModel;
             _videosStorageViewModel = videosStorageViewModel;
             _documentsStorageViewModel = documentsStorageViewModel;
+            _downloadsStorageViewModel = downloadsStorageViewModel;
+            _apksStorageViewModel = apksStorageViewModel;
+            _otherStorageViewModel = otherStorageViewModel;
+            _cleanupOpportunitiesViewModel = cleanupOpportunitiesViewModel;
+            _storageInsightsViewModel = storageInsightsViewModel;
 
             _documentsStorageViewModel.OnBackRequested += () =>
             {
@@ -103,6 +121,60 @@ namespace RMX3171ControlCentre.ViewModels
                 VideoStorageTotalText = $"{totalGb:F2} GB";
             };
 
+            
+            _downloadsStorageViewModel.OnBackRequested += () =>
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+                _downloadsStorageViewModel.OnNavigatedFrom();
+            };
+            _downloadsStorageViewModel.OnTotalDownloadStorageUpdated += (totalGb, count) =>
+            {
+                DownloadStorageTotalText = $"{totalGb:F2} GB";
+            };
+
+            _apksStorageViewModel.OnBackRequested += () =>
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+                _apksStorageViewModel.OnNavigatedFrom();
+            };
+            _apksStorageViewModel.OnTotalApkStorageUpdated += (totalGb, count) =>
+            {
+                ApkStorageTotalText = $"{totalGb:F2} GB";
+            };
+
+            _otherStorageViewModel.OnBackRequested += () =>
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+                _otherStorageViewModel.OnNavigatedFrom();
+            };
+            _otherStorageViewModel.OnTotalOtherStorageUpdated += (totalGb, count) =>
+            {
+                OtherStorageTotalText = $"{totalGb:F2} GB";
+            };
+
+            _cleanupOpportunitiesViewModel.OnBackRequested += () =>
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+            };
+
+            _cleanupOpportunitiesViewModel.RequestViewChange += (vm) =>
+            {
+                IsHubVisible = false;
+                CurrentView = vm;
+            };
+
+
+            _storageInsightsViewModel.OnBackRequested += () =>
+            {
+                IsHubVisible = true;
+                CurrentView = null;
+            };
+
+
             var cached = _telemetryService.CurrentSnapshot?.Storage;
             if (cached != null && cached.TotalGb > 0 && cached.LastUpdated != DateTime.MinValue)
             {
@@ -149,6 +221,54 @@ namespace RMX3171ControlCentre.ViewModels
             IsHubVisible = false;
             CurrentView = _documentsStorageViewModel;
             await _documentsStorageViewModel.OnNavigatedToAsync();
+        }
+
+        
+        [RelayCommand]
+        private async Task NavigateToDownloadsAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _downloadsStorageViewModel;
+            await _downloadsStorageViewModel.OnNavigatedToAsync();
+        }
+
+        [RelayCommand]
+        private async Task NavigateToApksAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _apksStorageViewModel;
+            await _apksStorageViewModel.OnNavigatedToAsync();
+        }
+
+        [RelayCommand]
+        private async Task NavigateToOtherAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _otherStorageViewModel;
+            await _otherStorageViewModel.OnNavigatedToAsync();
+        }
+
+        [RelayCommand]
+        private async Task NavigateToCleanupAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _cleanupOpportunitiesViewModel;
+            await _cleanupOpportunitiesViewModel.AnalyzeAsync(_photosStorageViewModel, _videosStorageViewModel, _documentsStorageViewModel, _downloadsStorageViewModel, _apksStorageViewModel, _otherStorageViewModel);
+        }
+
+        
+        [RelayCommand]
+        private async Task NavigateToInsightsAsync()
+        {
+            IsHubVisible = false;
+            CurrentView = _storageInsightsViewModel;
+            
+            var snap = _telemetryService.CurrentSnapshot?.Storage;
+            double totalGb = snap != null ? snap.TotalGb : 0;
+            double usedGb = snap != null ? snap.UsedGb : 0;
+            double freeGb = snap != null ? snap.FreeGb : 0;
+            
+            await _storageInsightsViewModel.AnalyzeAsync(totalGb, usedGb, freeGb, _appStorageViewModel, _photosStorageViewModel, _videosStorageViewModel, _documentsStorageViewModel, _downloadsStorageViewModel, _apksStorageViewModel, _otherStorageViewModel);
         }
 
         public async Task EnsureLoadedAsync()

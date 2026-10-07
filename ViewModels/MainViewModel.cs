@@ -33,6 +33,7 @@ namespace RMX3171ControlCentre.ViewModels
         public CapacityTesterViewModel CapacityTesterVM { get; }
         public MemoryManagerViewModel MemoryManagerVM { get; }
         public AppManagerViewModel AppManagerVM { get; }
+        public CacheManagerViewModel CacheManagerVM { get; }
         public LogsViewModel LogsVM { get; }
 
         [ObservableProperty]
@@ -58,6 +59,7 @@ namespace RMX3171ControlCentre.ViewModels
             BatteryViewModel batteryVM,
             CapacityTesterViewModel capacityTesterVM,
             MemoryManagerViewModel memoryManagerVM,
+            CacheManagerViewModel cacheManagerVM,
             AppManagerViewModel appManagerVM,
             LogsViewModel logsVM)
         {
@@ -71,6 +73,7 @@ namespace RMX3171ControlCentre.ViewModels
             BatteryVM = batteryVM;
             CapacityTesterVM = capacityTesterVM;
             MemoryManagerVM = memoryManagerVM;
+            CacheManagerVM = cacheManagerVM;
             AppManagerVM = appManagerVM;
             LogsVM = logsVM;
 
@@ -176,6 +179,7 @@ namespace RMX3171ControlCentre.ViewModels
                 "Battery" => BatteryVM,
                 "Capacity" => CapacityTesterVM,
                 "Memory" => MemoryManagerVM,
+                "Cache" => CacheManagerVM,
                 "AppManager" => AppManagerVM,
                 "Logs" => LogsVM,
                 _ => DashboardVM

@@ -56,6 +56,11 @@ namespace RMX3171ControlCentre.ViewModels.Storage
 
         // Photo Viewer State
         [ObservableProperty] private bool _viewerVisible;
+        public event Action? OnViewerClosed;
+        partial void OnViewerVisibleChanged(bool value)
+        {
+            if (!value) OnViewerClosed?.Invoke();
+        }
         [ObservableProperty] private PhotoItem? _viewerPhoto;
         [ObservableProperty] private BitmapImage? _viewerImageSource;
         [ObservableProperty] private bool _viewerIsLoading;
@@ -213,12 +218,12 @@ namespace RMX3171ControlCentre.ViewModels.Storage
             ViewerVisible = false;
             ViewerImageSource = null; // Free memory!
             ViewerPhoto = null;
-        }
+                    }
 
         public event Action? OnFitRequested;
         public event Action? OnActualSizeRequested;
         public event Action? OnZoomInRequested;
-        public event Action? OnZoomOutRequested;
+                public event Action? OnZoomOutRequested;
 
         [RelayCommand] private void ZoomInViewer() => OnZoomInRequested?.Invoke();
         [RelayCommand] private void ZoomOutViewer() => OnZoomOutRequested?.Invoke();

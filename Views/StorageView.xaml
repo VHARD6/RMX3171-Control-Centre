@@ -17,6 +17,21 @@
         <DataTemplate DataType="{x:Type localViewModels:VideosStorageViewModel}">
             <localViews:VideosStorageView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type localViewModels:DownloadsStorageViewModel}">
+            <localViews:DownloadsStorageView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type localViewModels:ApksStorageViewModel}">
+            <localViews:ApksStorageView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type localViewModels:OtherStorageViewModel}">
+            <localViews:OtherStorageView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type localViewModels:CleanupOpportunitiesViewModel}">
+            <localViews:CleanupOpportunitiesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type localViewModels:StorageInsightsViewModel}">
+            <localViews:StorageInsightsView />
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Margin="20">
@@ -97,9 +112,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                            </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Total:" Foreground="#FF888888" FontSize="13" Margin="0,0,0,4"/>
@@ -126,7 +139,16 @@
 
                 <!-- Categories -->
                 <Grid Visibility="{Binding IsLoaded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="15"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="10"/>
                         <ColumnDefinition Width="*"/>
@@ -136,7 +158,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="0" Command="{Binding NavigateToAppsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                    <Button Grid.Row="0" Grid.Column="0" Command="{Binding NavigateToAppsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
                         <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
                             <StackPanel VerticalAlignment="Center" Margin="10">
                                 <TextBlock Text="Apps" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
@@ -145,7 +167,7 @@
                         </Border>
                     </Button>
 
-                    <Button Grid.Column="2" Command="{Binding NavigateToPhotosCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                    <Button Grid.Row="0" Grid.Column="2" Command="{Binding NavigateToPhotosCommand}" Background="Transparent" BorderThickness="0" Padding="0">
                         <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
                             <StackPanel VerticalAlignment="Center" Margin="10">
                                 <TextBlock Text="Photos" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
@@ -154,7 +176,7 @@
                         </Border>
                     </Button>
 
-                    <Button Grid.Column="4" Command="{Binding NavigateToVideosCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                    <Button Grid.Row="0" Grid.Column="4" Command="{Binding NavigateToVideosCommand}" Background="Transparent" BorderThickness="0" Padding="0">
                         <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
                             <StackPanel VerticalAlignment="Center" Margin="10">
                                 <TextBlock Text="Videos" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
@@ -163,11 +185,56 @@
                         </Border>
                     </Button>
 
-                    <Button Grid.Column="6" Command="{Binding NavigateToDocumentsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                    <Button Grid.Row="0" Grid.Column="6" Command="{Binding NavigateToDocumentsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
                         <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
                             <StackPanel VerticalAlignment="Center" Margin="10">
                                 <TextBlock Text="Documents" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
                                 <TextBlock Text="{Binding DocumentStorageTotalText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <Button Grid.Row="0" Grid.Column="8" Command="{Binding NavigateToDownloadsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
+                            <StackPanel VerticalAlignment="Center" Margin="10">
+                                <TextBlock Text="Downloads" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
+                                <TextBlock Text="{Binding DownloadStorageTotalText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <Button Grid.Row="2" Grid.Column="0" Command="{Binding NavigateToApksCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
+                            <StackPanel VerticalAlignment="Center" Margin="10">
+                                <TextBlock Text="APKs" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
+                                <TextBlock Text="{Binding ApkStorageTotalText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <Button Grid.Row="2" Grid.Column="2" Command="{Binding NavigateToOtherCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF2D2D30">
+                            <StackPanel VerticalAlignment="Center" Margin="10">
+                                <TextBlock Text="Other" FontSize="14" FontWeight="Bold" Foreground="#FF888888"/>
+                                <TextBlock Text="{Binding OtherStorageTotalText}" FontSize="20" FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                                        <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Command="{Binding NavigateToCleanupCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF1E1E20" BorderBrush="{StaticResource PrimaryBrush}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="15" HorizontalAlignment="Center">
+                                <TextBlock Text="&#10024;" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Review Cleanup Opportunities" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                    
+                    <Button Grid.Row="4" Grid.Column="5" Grid.ColumnSpan="4" Command="{Binding NavigateToInsightsCommand}" Background="Transparent" BorderThickness="0" Padding="0">
+                        <Border Style="{StaticResource CardStyle}" HorizontalAlignment="Stretch" Background="#FF1E1E20" BorderBrush="{StaticResource PrimaryBrush}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="15" HorizontalAlignment="Center">
+                                <TextBlock Text="&#128202;" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Storage Insights" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                     </Button>
@@ -181,4 +248,6 @@
                         Visibility="{Binding IsHubVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
     </Grid>
 </UserControl>
+
+
 

@@ -153,6 +153,8 @@
                                 <Run Text="Normal user-installed applications."/>
                             </TextBlock>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock Text="{Binding EstimatedReclaimableLabel, StringFormat='{}Reclaimable: {0}'}" Foreground="#FFC23934" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                                <Button Content="Select All" Command="{Binding SelectAllEligibleCommand}" Background="#FF2A2A2E" Foreground="White" BorderThickness="0" Padding="15,6" FontWeight="SemiBold" Margin="0,0,10,0"/>
                                 <Button Content="Quick Clean" Command="{Binding QuickCleanCommand}"
                                         Background="#007ACC" Foreground="White" BorderThickness="0"
                                         Padding="15,6" FontWeight="SemiBold" Margin="0,0,10,0"/>
@@ -202,6 +204,7 @@
 
                                 <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="100" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="80" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="State" Binding="{Binding Importance}" Width="110" IsReadOnly="True"/>
 
                                 <DataGridTemplateColumn Header="Recommendation" Width="180" CanUserSort="False">
@@ -215,29 +218,50 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
 
-                                <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
+                                <DataGridTemplateColumn Header="Action" Width="200" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding}"
-                                                    Padding="10,3" Margin="2" BorderThickness="0" Cursor="Hand">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Content" Value="Force Stop"/>
-                                                        <Setter Property="Background" Value="#444448"/>
-                                                        <Setter Property="Foreground" Value="White"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding CanForceStop}" Value="False">
-                                                                <Setter Property="Content" Value="🔒 Protected"/>
-                                                                <Setter Property="Background" Value="Transparent"/>
-                                                                <Setter Property="Foreground" Value="#666666"/>
-                                                                <Setter Property="IsEnabled" Value="False"/>
-                                                                <Setter Property="Cursor" Value="Arrow"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="Force Stop" 
+                                                        Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#444448" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Content" Value="Protected"/>
+                                                                    <Setter Property="Background" Value="Transparent"/>
+                                                                    <Setter Property="Foreground" Value="#666666"/>
+                                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                                    <Setter Property="Cursor" Value="Arrow"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="Disable" 
+                                                        Command="{Binding DataContext.DisablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#883333" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="Enable" 
+                                                        Command="{Binding DataContext.EnablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#338833" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -306,6 +330,7 @@
 
                                 <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="RAM — PSS" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="100" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="80" IsReadOnly="True"/>
                                 
                                 <DataGridTemplateColumn Header="Recommendation" Width="200" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -318,29 +343,50 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
 
-                                <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
+                                <DataGridTemplateColumn Header="Action" Width="200" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding}"
-                                                    Padding="10,3" Margin="2" BorderThickness="0" Cursor="Hand">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Content" Value="Force Stop"/>
-                                                        <Setter Property="Background" Value="#444448"/>
-                                                        <Setter Property="Foreground" Value="White"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding CanForceStop}" Value="False">
-                                                                <Setter Property="Content" Value="🔒 Protected"/>
-                                                                <Setter Property="Background" Value="Transparent"/>
-                                                                <Setter Property="Foreground" Value="#666666"/>
-                                                                <Setter Property="IsEnabled" Value="False"/>
-                                                                <Setter Property="Cursor" Value="Arrow"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="Force Stop" 
+                                                        Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#444448" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Content" Value="Protected"/>
+                                                                    <Setter Property="Background" Value="Transparent"/>
+                                                                    <Setter Property="Foreground" Value="#666666"/>
+                                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                                    <Setter Property="Cursor" Value="Arrow"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="Disable" 
+                                                        Command="{Binding DataContext.DisablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#883333" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="Enable" 
+                                                        Command="{Binding DataContext.EnablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#338833" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -413,6 +459,7 @@
 
                                 <DataGridTextColumn Header="Process / Package" Binding="{Binding PackageName}" Width="*"/>
                                 <DataGridTextColumn Header="RAM" Binding="{Binding RamMb, StringFormat={}{0:F0} MB}" Width="70"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="80" IsReadOnly="True"/>
                                 
                                 <DataGridTemplateColumn Header="Recommendation" Width="200" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -436,29 +483,93 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 
-                                <DataGridTemplateColumn Header="Action" Width="110" CanUserSort="False">
+                                <DataGridTemplateColumn Header="Action" Width="200" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding}"
-                                                    Padding="10,3" Margin="2" BorderThickness="0" Cursor="Hand">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Content" Value="Force Stop"/>
-                                                        <Setter Property="Background" Value="#444448"/>
-                                                        <Setter Property="Foreground" Value="White"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding CanForceStop}" Value="False">
-                                                                <Setter Property="Content" Value="🔒 Protected"/>
-                                                                <Setter Property="Background" Value="Transparent"/>
-                                                                <Setter Property="Foreground" Value="#666666"/>
-                                                                <Setter Property="IsEnabled" Value="False"/>
-                                                                <Setter Property="Cursor" Value="Arrow"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="Force Stop" 
+                                                        Command="{Binding DataContext.ForceStopCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#444448" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Content" Value="Protected"/>
+                                                                    <Setter Property="Background" Value="Transparent"/>
+                                                                    <Setter Property="Foreground" Value="#666666"/>
+                                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                                    <Setter Property="Cursor" Value="Arrow"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="Disable" 
+                                                        Command="{Binding DataContext.DisablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#883333" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CanForceStop}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="Enable" 
+                                                        Command="{Binding DataContext.EnablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#338833" Foreground="White" Padding="8,3" Margin="2" BorderThickness="0" Cursor="Hand"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+            <!-- TAB 4 - DISABLED APPS -->
+            <TabItem Header="{Binding DisabledCountLabel}">
+                <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#1A2A3A" BorderBrush="#204060" BorderThickness="1"
+                                CornerRadius="4" Padding="10" Margin="0,0,0,10">
+                            <TextBlock TextWrapping="Wrap" Foreground="#A0C0E0" FontSize="12">
+                                <Run FontWeight="Bold">[i] DISABLED APPS.</Run>
+                                <Run>These packages are currently disabled on the phone and do not consume RAM. Use the Enable button to restore them.</Run>
+                            </TextBlock>
+                        </Border>
+
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding DisabledAppProcesses}" AutoGenerateColumns="False"
+                                  CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
+                                  Background="Transparent" BorderThickness="0"
+                                  RowBackground="Transparent" AlternatingRowBackground="#262629"
+                                  GridLinesVisibility="None" Foreground="White" CanUserSortColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Package Name" Binding="{Binding PackageName}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="150" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Recommendation" Binding="{Binding Recommendation}" Width="200" IsReadOnly="True"/>
+                                <DataGridTemplateColumn Header="Action" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="Enable" Command="{Binding DataContext.EnablePackageCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                                        CommandParameter="{Binding}"
+                                                        Background="#2E7D32" Foreground="White" BorderThickness="0" Padding="10,4" Margin="0,0,5,0"
+                                                        Visibility="{Binding IsDisabled, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

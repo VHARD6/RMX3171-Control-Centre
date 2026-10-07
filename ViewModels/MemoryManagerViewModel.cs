@@ -34,6 +34,12 @@ namespace RMX3171ControlCentre.ViewModels
         private ObservableCollection<AppProcessInfo> _systemProcesses = new ObservableCollection<AppProcessInfo>();
 
         [ObservableProperty]
+        private ObservableCollection<AppProcessInfo> _disabledAppProcesses = new ObservableCollection<AppProcessInfo>();
+        
+        [ObservableProperty]
+        private string _disabledCountLabel = "DISABLED APPS (0)";
+
+        [ObservableProperty]
         private bool _isRefreshing;
 
         [ObservableProperty]
@@ -50,6 +56,28 @@ namespace RMX3171ControlCentre.ViewModels
 
         [ObservableProperty]
         private string _systemTotalLabel = "0 MB (PSS)";
+        [ObservableProperty]
+        private string _estimatedReclaimableLabel = "0 MB";
+
+        [RelayCommand]
+        private void SelectAllEligible()
+        {
+            foreach (var app in UserAppProcesses)
+            {
+                if (app.CanForceStop)
+                    app.IsSelected = true;
+            }
+        }
+
+        private void UpdateEstimatedReclaimable()
+        {
+            var selected = UserAppProcesses.Concat(VendorOptionalProcesses).Concat(SystemProcesses)
+                .Where(a => a.IsSelected && a.CanForceStop).ToList();
+            
+            double total = selected.Sum(a => a.RamMb);
+            EstimatedReclaimableLabel = $"{total:F0} MB";
+        }
+
 
         [ObservableProperty]
         private string _dataSources = "—";
@@ -71,6 +99,7 @@ namespace RMX3171ControlCentre.ViewModels
 
             _appModeService.ModeChanged += (s, e) => {
                 UpdateCanForceStop();
+                UpdateEstimatedReclaimable();
             };
 
             _telemetryService.SnapshotUpdated += (s, e) =>
@@ -137,35 +166,119 @@ namespace RMX3171ControlCentre.ViewModels
 
                 DataSources = query.Sources;
 
-                UserAppProcesses.Clear();
+                // Merge UserAppProcesses
+                var existingUsers = UserAppProcesses.ToDictionary(a => a.PackageName);
                 foreach (var app in query.UserApps)
                 {
-                    app.IsExcludedFromQuickClean = exclusions.Contains(app.PackageName);
-                    app.PropertyChanged += async (s, e) =>
+                    if (existingUsers.TryGetValue(app.PackageName, out var existing))
                     {
-                        if (e.PropertyName == nameof(AppProcessInfo.IsExcludedFromQuickClean))
+                        existing.RamMb = app.RamMb;
+                        existingUsers.Remove(app.PackageName);
+                    }
+                    else
+                    {
+                        app.IsExcludedFromQuickClean = exclusions.Contains(app.PackageName);
+                        app.PropertyChanged += async (s, e) =>
                         {
-                            var current = await _configService.GetExcludedPackagesAsync();
-                            if (app.IsExcludedFromQuickClean) current.Add(app.PackageName);
-                            else current.Remove(app.PackageName);
-                            await _configService.SaveExcludedPackagesAsync(current);
-                        }
-                    };
-                    UserAppProcesses.Add(app);
+                            if (e.PropertyName == nameof(AppProcessInfo.IsSelected))
+                            {
+                                UpdateEstimatedReclaimable();
+                            }
+                            if (e.PropertyName == nameof(AppProcessInfo.IsExcludedFromQuickClean))
+                            {
+                                var current = await _configService.GetExcludedPackagesAsync();
+                                if (app.IsExcludedFromQuickClean) current.Add(app.PackageName);
+                                else current.Remove(app.PackageName);
+                                await _configService.SaveExcludedPackagesAsync(current);
+                            }
+                        };
+                        UserAppProcesses.Add(app);
+                    }
+                }
+                foreach (var remaining in existingUsers.Values)
+                {
+                    remaining.RamMb = 0;
+                }
+                foreach (var app in UserAppProcesses)
+                {
+                    app.IsDisabled = query.DisabledPackages.Contains(app.PackageName);
                 }
                 UserAppsTotalLabel = $"{query.UserAppsTotal:F0} MB (PSS)";
 
-                VendorOptionalProcesses.Clear();
+                // Merge VendorOptionalProcesses
+                var existingVendors = VendorOptionalProcesses.ToDictionary(a => a.PackageName);
                 foreach (var proc in query.VendorOptional)
-                    VendorOptionalProcesses.Add(proc);
+                {
+                    if (existingVendors.TryGetValue(proc.PackageName, out var existing))
+                    {
+                        existing.RamMb = proc.RamMb;
+                        existingVendors.Remove(proc.PackageName);
+                    }
+                    else
+                    {
+                        proc.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(AppProcessInfo.IsSelected)) UpdateEstimatedReclaimable(); };
+                        VendorOptionalProcesses.Add(proc);
+                    }
+                }
+                foreach (var remaining in existingVendors.Values)
+                {
+                    remaining.RamMb = 0;
+                }
+                foreach (var app in VendorOptionalProcesses)
+                {
+                    app.IsDisabled = query.DisabledPackages.Contains(app.PackageName);
+                }
                 VendorTotalLabel = $"{query.VendorTotal:F0} MB (PSS)";
 
-                SystemProcesses.Clear();
+                // Merge SystemProcesses
+                var existingSys = SystemProcesses.ToDictionary(a => a.PackageName);
                 foreach (var proc in query.SystemProcesses)
-                    SystemProcesses.Add(proc);
+                {
+                    if (existingSys.TryGetValue(proc.PackageName, out var existing))
+                    {
+                        existing.RamMb = proc.RamMb;
+                        existingSys.Remove(proc.PackageName);
+                    }
+                    else
+                    {
+                        proc.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(AppProcessInfo.IsSelected)) UpdateEstimatedReclaimable(); };
+                        SystemProcesses.Add(proc);
+                    }
+                }
+                foreach (var remaining in existingSys.Values)
+                {
+                    remaining.RamMb = 0;
+                }
+                foreach (var app in SystemProcesses)
+                {
+                    app.IsDisabled = query.DisabledPackages.Contains(app.PackageName);
+                }
+
+                // Merge DisabledAppProcesses
+                var existingDisabled = DisabledAppProcesses.ToDictionary(a => a.PackageName);
+                foreach (var proc in query.DisabledAppProcesses)
+                {
+                    if (existingDisabled.TryGetValue(proc.PackageName, out var existing))
+                    {
+                        existing.IsDisabled = true;
+                        existing.DisabledStateDetail = proc.DisabledStateDetail;
+                        existingDisabled.Remove(proc.PackageName);
+                    }
+                    else
+                    {
+                        DisabledAppProcesses.Add(proc);
+                    }
+                }
+                foreach (var remaining in existingDisabled.Values)
+                {
+                    DisabledAppProcesses.Remove(remaining);
+                }
+                
+                DisabledCountLabel = $"DISABLED APPS ({DisabledAppProcesses.Count})";
                 SystemTotalLabel = $"{query.SystemTotal:F0} MB (PSS)";
 
                 UpdateCanForceStop();
+                UpdateEstimatedReclaimable();
             }
             finally
             {
@@ -200,6 +313,85 @@ namespace RMX3171ControlCentre.ViewModels
                 return;
             }
             await ExecuteBatchCleanAsync(candidates, "Quick Clean");
+        }
+
+
+        [RelayCommand]
+        private async Task DisablePackageAsync(AppProcessInfo app)
+        {
+            if (app == null || !app.CanForceStop || app.IsCritical) return;
+
+            if (_appModeService.CurrentMode == AppMode.ReadOnly)
+            {
+                _dialogService.ShowMessage("Access Denied", "Device modification is disabled.\nPlease enter Advanced Mode.");
+                return;
+            }
+
+            bool needsExpert = app.RiskLevel != PackageRiskLevel.LOW;
+            if (needsExpert && _appModeService.CurrentMode != AppMode.Expert)
+            {
+                _dialogService.ShowMessage("Expert Mode Required", "You must enable Expert Actions to disable vendor/system components.");
+                return;
+            }
+
+            string details = $"You are about to disable:\n\n  • {app.PackageName}\n\nThis prevents the package from running normally until re-enabled.\nRisk: {app.RecommendationString}";
+            if (needsExpert) details = "⚠️ EXPERT ACTION\n\n" + details;
+
+            bool confirm = await _dialogService.ShowModificationPreviewAsync(
+                "Disable Package",
+                app.PackageName,
+                "Enabled",
+                "Disabled",
+                $"adb shell pm disable-user --user 0 {app.PackageName}",
+                needsExpert ? "HIGH RISK" : "MODIFY",
+                details
+            );
+
+            if (!confirm) return;
+
+            bool ok = await _memoryService.DisablePackageAsync(app.PackageName);
+            _auditService.LogModification("Disable", app.PackageName, "Enabled", ok ? "Disabled" : "Failed", $"adb shell pm disable-user --user 0 {app.PackageName}", ok);
+            
+            if (!ok)
+            {
+                _dialogService.ShowMessage("Error", $"Failed to disable {app.PackageName}.");
+            }
+            
+            await RefreshAsync();
+        }
+
+        [RelayCommand]
+        private async Task EnablePackageAsync(AppProcessInfo app)
+        {
+            if (app == null) return;
+            
+            if (_appModeService.CurrentMode == AppMode.ReadOnly)
+            {
+                _dialogService.ShowMessage("Access Denied", "Device modification is disabled.");
+                return;
+            }
+
+            bool confirm = await _dialogService.ShowModificationPreviewAsync(
+                "Enable Package",
+                app.PackageName,
+                "Disabled",
+                "Enabled",
+                $"adb shell pm enable {app.PackageName}",
+                "LOW",
+                "This will restore the package to its normal enabled state."
+            );
+
+            if (!confirm) return;
+
+            bool ok = await _memoryService.EnablePackageAsync(app.PackageName);
+            _auditService.LogModification("Enable", app.PackageName, "Disabled", ok ? "Enabled" : "Failed", $"adb shell pm enable {app.PackageName}", ok);
+            
+            if (!ok)
+            {
+                _dialogService.ShowMessage("Error", $"Failed to enable {app.PackageName}.");
+            }
+
+            await RefreshAsync();
         }
 
         [RelayCommand]

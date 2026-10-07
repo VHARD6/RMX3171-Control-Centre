@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -60,6 +60,11 @@ namespace RMX3171ControlCentre.ViewModels.Storage
 
         // Viewer States
         [ObservableProperty] private bool _viewerVisible;
+        public event Action? OnViewerClosed;
+        partial void OnViewerVisibleChanged(bool value)
+        {
+            if (!value) OnViewerClosed?.Invoke();
+        }
         [ObservableProperty] private bool _viewerIsLoading;
         [ObservableProperty] private string _viewerLoadingText = "Preparing document...";
         [ObservableProperty] private DocumentItem? _viewerDocument;

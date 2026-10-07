@@ -14,6 +14,11 @@ namespace RMX3171ControlCentre.Services.Device
         Task<MemoryInfo> GetMemoryInfoAsync();
         Task<MemoryQueryResult> GetProcessesAsync();
         Task<bool> ForceStopAppAsync(string packageName);
+        Task<bool> DisablePackageAsync(string packageName);
+        Task<bool> EnablePackageAsync(string packageName);
+        Task<System.Collections.Generic.List<RMX3171ControlCentre.Models.CacheAppInfo>> GetAppCachesAsync();
+        Task<double> GetTotalCacheSizeMbAsync();
+        Task<(string status, double clearedMb, double remainingMb)> ClearAppCacheAsync(string packageName);
     }
 
     public class MemoryQueryResult
@@ -22,6 +27,8 @@ namespace RMX3171ControlCentre.Services.Device
         public List<AppProcessInfo> VendorOptional { get; set; } = new List<AppProcessInfo>();
         public List<AppProcessInfo> SystemProcesses { get; set; } = new List<AppProcessInfo>();
         public string Sources { get; set; } = "";
+        public HashSet<string> DisabledPackages { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        public List<AppProcessInfo> DisabledAppProcesses { get; set; } = new List<AppProcessInfo>();
         
         public double UserAppsTotal => UserApps.Sum(a => a.RamMb);
         public double VendorTotal => VendorOptional.Sum(a => a.RamMb);
@@ -48,7 +55,7 @@ namespace RMX3171ControlCentre.Services.Device
             {
                 foreach (var line in memInfoResult.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    var parts = line.Split(new[] { ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    var parts = line.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                     if (parts.Length >= 2 && double.TryParse(parts[1], out double kb))
                     {
                         double gb = kb / (1024.0 * 1024.0);
@@ -71,7 +78,7 @@ namespace RMX3171ControlCentre.Services.Device
                 {
                     if (line.Contains("/dev/block/zram"))
                     {
-                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                        var parts = line.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                         if (parts.Length >= 4)
                         {
                             if (double.TryParse(parts[2], out double sizeKb))
@@ -121,6 +128,39 @@ namespace RMX3171ControlCentre.Services.Device
                     var pkg = line.Replace("package:", "").Trim();
                     if (!string.IsNullOrEmpty(pkg))
                         userPackages.Add(pkg);
+                }
+            }
+            
+            var disabledPmResult = await _adbService.ExecuteCommandAsync("shell pm list packages -d --user 0");
+            if (disabledPmResult.ExitCode == 0)
+            {
+                var disabledPackages = disabledPmResult.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(l => l.Replace("package:", "").Trim())
+                    .Where(l => !string.IsNullOrEmpty(l))
+                    .ToList();
+
+                foreach (var pkg in disabledPackages)
+                {
+                    result.DisabledPackages.Add(pkg);
+                    
+                    var stateResult = await _adbService.ExecuteCommandAsync($"shell \"dumpsys package {pkg} | grep -E -m 1 'enabled=[0-9]' | grep -E -o 'enabled=[0-9]'\"");
+                    string stateStr = stateResult.Output.Trim();
+                    string stateDetail = stateStr == "enabled=3" ? "DISABLED_USER" : "DISABLED";
+                    
+                    bool isPmUserApp = userPackages.Contains(pkg);
+                    var classification = PackageRiskEvaluator.Evaluate(pkg, !isPmUserApp);
+                    
+                    var info = new AppProcessInfo
+                    {
+                        PackageName = pkg,
+                        AppName = pkg,
+                        IsDisabled = true,
+                        DisabledStateDetail = stateDetail,
+                        RiskLevel = classification.RiskLevel,
+                        Recommendation = classification.Recommendation,
+                        Reason = classification.Reason
+                    };
+                    result.DisabledAppProcesses.Add(info);
                 }
             }
 
@@ -213,6 +253,22 @@ namespace RMX3171ControlCentre.Services.Device
             return result;
         }
 
+        public async Task<bool> DisablePackageAsync(string packageName)
+        {
+            if (string.IsNullOrEmpty(packageName)) return false;
+            var classification = PackageRiskEvaluator.Evaluate(packageName, false);
+            if (classification.RiskLevel == PackageRiskLevel.CRITICAL) return false;
+            
+            var result = await _adbService.ExecuteCommandAsync($"shell pm disable-user --user 0 {packageName}", isReadOnly: false);
+            return result.ExitCode == 0;
+        }
+
+        public async Task<bool> EnablePackageAsync(string packageName)
+        {
+            if (string.IsNullOrEmpty(packageName)) return false;
+            var result = await _adbService.ExecuteCommandAsync($"shell pm enable {packageName}", isReadOnly: false);
+            return result.ExitCode == 0;
+        }
         public async Task<bool> ForceStopAppAsync(string packageName)
         {
             if (string.IsNullOrEmpty(packageName)) return false;
@@ -251,5 +307,181 @@ namespace RMX3171ControlCentre.Services.Device
             "Native"              => 10,
             _                     => 0,
         };
+    
+        public async Task<List<CacheAppInfo>> GetAppCachesAsync()
+        {
+            var result = new List<CacheAppInfo>();
+            
+            // Get all packages to determine user/system
+            var pm3Result = await _adbService.ExecuteCommandAsync("shell pm list packages -3");
+            var userPkgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (pm3Result.ExitCode == 0)
+            {
+                foreach (var line in pm3Result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    userPkgs.Add(line.Replace("package:", "").Trim());
+            }
+
+            var pmSysResult = await _adbService.ExecuteCommandAsync("shell pm list packages -s");
+            var sysPkgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (pmSysResult.ExitCode == 0)
+            {
+                foreach (var line in pmSysResult.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    sysPkgs.Add(line.Replace("package:", "").Trim());
+            }
+
+            // Get external cache sizes
+            var duResult = await _adbService.ExecuteCommandAsync("shell \"du -s /sdcard/Android/data/*/cache 2>/dev/null\"");
+            var cacheSizes = new Dictionary<string, double>();
+            if (duResult.ExitCode == 0)
+            {
+                foreach (var line in duResult.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var parts = line.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        if (long.TryParse(parts[0], out long kb))
+                        {
+                            var pathParts = parts[1].Split('/');
+                            if (pathParts.Length >= 5)
+                            {
+                                string pkg = pathParts[4];
+                                cacheSizes[pkg] = kb / 1024.0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            var allPkgs = new HashSet<string>(userPkgs);
+            allPkgs.UnionWith(sysPkgs);
+            allPkgs.UnionWith(cacheSizes.Keys);
+
+            foreach (var pkg in allPkgs)
+            {
+                if (string.IsNullOrEmpty(pkg)) continue;
+
+                bool isUserApp = userPkgs.Contains(pkg) && !sysPkgs.Contains(pkg);
+                var risk = PackageRiskEvaluator.Evaluate(pkg, !isUserApp);
+                
+                string category = "USER APP";
+                bool eligible = true;
+                string reason = "";
+
+                if (pkg.Equals("com.heytap.appplatform", StringComparison.OrdinalIgnoreCase) || risk.RiskLevel == PackageRiskLevel.CRITICAL)
+                {
+                    category = "CRITICAL SYSTEM COMPONENT";
+                    eligible = false;
+                    reason = "Critical dependency. Cannot be modified.";
+                }
+                else if (!isUserApp)
+                {
+                    if (risk.RiskLevel == PackageRiskLevel.MODERATE)
+                    {
+                        category = "VENDOR/OEM APP";
+                        eligible = false;
+                        reason = "Vendor app. Cache clearing restricted.";
+                    }
+                    else
+                    {
+                        category = "SYSTEM APP";
+                        eligible = false;
+                        reason = "System app. Cache clearing restricted.";
+                    }
+                }
+
+                double size = cacheSizes.ContainsKey(pkg) ? cacheSizes[pkg] : 0.0;
+                // Include if it has cache OR is an eligible user app so we can attempt to clear internal cache
+                if (size > 0 || eligible)
+                {
+                    result.Add(new CacheAppInfo
+                    {
+                        PackageName = pkg,
+                        AppName = pkg,
+                        CacheSizeMb = size,
+                        Category = category,
+                        IsEligible = eligible,
+                        ExcludeReason = reason
+                    });
+                }
+            }
+            return result.OrderByDescending(x => x.CacheSizeMb).ThenBy(x => x.PackageName).ToList();
+        }
+
+        public async Task<double> GetTotalCacheSizeMbAsync()
+        {
+            var res = await _adbService.ExecuteCommandAsync("shell dumpsys diskstats");
+            if (res.ExitCode == 0)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(res.Output, @"App Cache Size: (\d+)");
+                if (match.Success && long.TryParse(match.Groups[1].Value, out long bytes))
+                {
+                    return bytes / (1024.0 * 1024.0);
+                }
+            }
+            return 0;
+        }
+
+        public async Task<(string status, double clearedMb, double remainingMb)> ClearAppCacheAsync(string packageName)
+        {
+            var checkRes = await _adbService.ExecuteCommandAsync($"shell \"[ -d /sdcard/Android/data/{packageName}/cache ] && echo YES || echo NO\"");
+            if (!checkRes.Output.Contains("YES"))
+            {
+                return ("External cache unavailable", 0, 0);
+            }
+
+            var (beforeSuccess, beforeKb) = await GetDirectorySizeKbAsync($"/sdcard/Android/data/{packageName}/cache");
+            if (!beforeSuccess)
+            {
+                return ("Failed", 0, 0);
+            }
+
+            if (beforeKb <= 8)
+            {
+                return ("Nothing to clear", 0, beforeKb / 1024.0);
+            }
+
+            var rmRes = await _adbService.ExecuteCommandAsync($"shell \"rm -rf /sdcard/Android/data/{packageName}/cache/*\"");
+            if (rmRes.ExitCode != 0)
+            {
+                return ("Failed", 0, beforeKb / 1024.0);
+            }
+
+            var (afterSuccess, afterKb) = await GetDirectorySizeKbAsync($"/sdcard/Android/data/{packageName}/cache");
+            if (!afterSuccess)
+            {
+                var checkDirAfter = await _adbService.ExecuteCommandAsync($"shell \"[ -d /sdcard/Android/data/{packageName}/cache ] && echo YES || echo NO\"");
+                if (!checkDirAfter.Output.Contains("YES"))
+                {
+                    double clearedMbDisappeared = beforeKb / 1024.0;
+                    return ("Cleared", clearedMbDisappeared, 0);
+                }
+
+                return ("Measurement failed", 0, 0);
+            }
+
+            double clearedMb = Math.Max(0, beforeKb - afterKb) / 1024.0;
+            double remainingMb = afterKb / 1024.0;
+
+            if (afterKb > 8)
+            {
+                return ("Partially cleared", clearedMb, remainingMb);
+            }
+
+            return ("Cleared", clearedMb, remainingMb);
+        }
+
+        private async Task<(bool success, long kb)> GetDirectorySizeKbAsync(string path)
+        {
+            var res = await _adbService.ExecuteCommandAsync($"shell \"du -s {path} 2>/dev/null\"");
+            if (res.ExitCode == 0 && !string.IsNullOrWhiteSpace(res.Output))
+            {
+                var parts = res.Output.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0 && long.TryParse(parts[0], out long kb))
+                {
+                    return (true, kb);
+                }
+            }
+            return (false, 0);
+        }
     }
 }
