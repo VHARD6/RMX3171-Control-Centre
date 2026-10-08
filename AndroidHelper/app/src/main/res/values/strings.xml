@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RMX Cache Cleaner</string>
+    <string name="header_subtitle">System-controlled cache cleanup</string>
+    
+    <!-- State 1: Permission Required -->
+    <string name="card_badge_permission">PERMISSION REQUIRED</string>
+    <string name="card_explanation_permission">Storage access is required before Android can perform the system cache cleanup.</string>
+    <string name="card_detail_permission">Android does not allow ordinary apps to clear private app cache or cache stored on removable SD cards.</string>
+    <string name="btn_grant_storage">GRANT STORAGE ACCESS</string>
+    
+    <!-- State 2: Ready to Clean -->
+    <string name="card_badge_ready">SYSTEM-CONTROLLED CACHE CLEANUP</string>
+    <string name="card_explanation_ready">Clear all app cache that Android permits on internal shared storage.</string>
+    <string name="card_detail_ready">Android does not allow ordinary apps to clear private app cache or cache stored on removable SD cards.</string>
+    <string name="btn_clean_cache">CLEAN ALL ACCESSIBLE CACHE</string>
+    
+    <!-- Shizuku States -->
+    <string name="shizuku_badge_uninstalled">DEEP CLEAN UNAVAILABLE</string>
+    <string name="shizuku_desc_uninstalled">Install Shizuku to enable private-cache cleaning.</string>
+    <string name="shizuku_btn_install">GET SHIZUKU</string>
+
+    <string name="shizuku_badge_not_running">SHIZUKU IS NOT RUNNING</string>
+    <string name="shizuku_desc_not_running">Start Shizuku via Wireless Debugging.</string>
+    <string name="shizuku_btn_start">OPEN SHIZUKU</string>
+
+    <string name="shizuku_badge_unauthorized">AUTHORIZATION REQUIRED</string>
+    <string name="shizuku_desc_unauthorized">Authorize RMX Cache Cleaner in Shizuku.</string>
+    <string name="shizuku_btn_authorize">AUTHORIZE RMX CACHE CLEANER</string>
+
+    <string name="shizuku_badge_ready">DEEP CACHE CLEAN READY</string>
+    <string name="shizuku_desc_ready">Uses Shizuku to clear private app cache that Android\'s normal cache cleaner cannot access.</string>
+
+    <!-- Scope Selector -->
+    <string name="scope_title">Package Scope:</string>
+    <string name="scope_user_apps">User Apps</string>
+    <string name="scope_all_apps">User + System Apps</string>
+    <string name="scope_system_warning_title">Include System &amp; Vendor Apps?</string>
+    <string name="scope_system_warning_msg">System and vendor applications are included. Cache only is targeted, but some system apps may regenerate cache or temporarily reload.</string>
+
+    <!-- Cleaning Actions -->
+    <string name="btn_full_clean">FULL ACCESSIBLE CACHE CLEAN</string>
+    <string name="btn_deep_clean">DEEP CACHE CLEAN</string>
+    <string name="btn_standard_clean">STANDARD CLEAN ONLY</string>
+    <string name="btn_app_info">APP INFO</string>
+
+    <!-- Scope Explanations -->
+    <string name="scope_standard_label">Standard Clean:</string>
+    <string name="scope_standard_val">External/shared cache</string>
+    <string name="scope_deep_label">Deep Clean:</string>
+    <string name="scope_deep_val">Private app cache</string>
+    <string name="scope_sd_label">SD Card:</string>
+    <string name="scope_sd_val">MicroSD cache is not affected.</string>
+
+    <!-- Deep Clean Confirmation Dialog -->
+    <string name="dialog_deep_title">Deep Cache Clean?</string>
+    <string name="dialog_deep_message">This uses Shizuku to clear private application cache.\n\nCache only is targeted.\n\nAccounts, messages, settings, databases and personal files are not cleared.\n\nSystem/vendor apps may regenerate cache after cleanup.\n\nContinue?</string>
+    <string name="dialog_deep_start">START CLEANING</string>
+    
+    <!-- Combined Full Clean Confirmation Dialog -->
+    <string name="dialog_full_title">Full Accessible Cache Clean?</string>
+    <string name="dialog_full_message">This performs both:\n1. Standard accessible shared-cache cleanup\n2. Shizuku private-cache sweep\n\nCache only is targeted.\n\nAccounts, messages, settings, databases and personal files are not cleared.\n\nMicroSD cache is not affected.\n\nContinue?</string>
+
+    <!-- Standard Pre-clean Confirmation Dialog -->
+    <string name="dialog_title">Clear Accessible App Cache?</string>
+    <string name="dialog_clean_message">Android will clear all app cache it permits on internal shared storage.\n\nPrivate app data, accounts, settings, messages and databases are not cleared.\n\nRemovable SD-card cache is not affected.</string>
+    <string name="dialog_positive">CONTINUE</string>
+    <string name="dialog_negative">CANCEL</string>
+
+    <!-- Progress UI -->
+    <string name="progress_title">Deep Cache Cleaning…</string>
+    <string name="progress_btn_cancel">CANCEL</string>
+
+    <!-- Result Statuses -->
+    <string name="status_completed">CLEANUP COMPLETE</string>
+    <string name="status_deep_completed">DEEP CACHE CLEAN COMPLETE</string>
+    <string name="status_full_completed">FULL CACHE CLEAN COMPLETE</string>
+    <string name="status_cancelled">Cache cleanup cancelled.</string>
+    <string name="status_failed">Android could not complete the cache cleanup.</string>
+    <string name="storage_note">Overall storage change, not a guaranteed exact cache-only measurement.</string>
+    <string name="deep_clean_note">Private application cache was requested to be cleared through Shizuku.</string>
+
+    <!-- Result Breakdown Items -->
+    <string name="summary_internal_label">Internal shared-storage app cache:</string>
+    <string name="summary_internal_val">Cleared by Android system</string>
+    <string name="summary_private_label">Private app cache:</string>
+    <string name="summary_private_val_cleared">Cleared via Shizuku</string>
+    <string name="summary_private_val_unaccessible">Not accessible</string>
+    <string name="summary_sd_label">SD-card cache:</string>
+    <string name="summary_sd_val">Not affected</string>
+
+    <!-- Feedback -->
+    <string name="toast_unable_to_open_settings">Unable to open system settings.</string>
+    <string name="toast_unable_to_open_app_info">Unable to open app info.</string>
+    <string name="footer_note">System-controlled cache cleanup • Official Android 11 API</string>
+</resources>

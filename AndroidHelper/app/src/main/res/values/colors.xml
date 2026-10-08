@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_main">#121214</color>
+    <color name="bg_card">#1E1E22</color>
+    <color name="border_card">#2C2C32</color>
+    
+    <color name="btn_primary_bg">#00A884</color>
+    <color name="btn_primary_pressed">#00876A</color>
+    
+    <color name="btn_secondary_bg">#25252A</color>
+    <color name="btn_secondary_pressed">#32323A</color>
+    <color name="btn_secondary_border">#3A3A42</color>
+    
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#9E9EA8</color>
+    <color name="text_muted">#686874</color>
+    <color name="accent_badge">#00C49F</color>
+</resources>
