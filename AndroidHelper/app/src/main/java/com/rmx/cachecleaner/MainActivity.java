@@ -272,6 +272,7 @@ public class MainActivity extends Activity {
         boolean isInstalled = ShizukuCacheCleaner.isShizukuInstalled(this);
         boolean isRunning = ShizukuCacheCleaner.isShizukuRunning();
         boolean isAuthorized = ShizukuCacheCleaner.isShizukuAuthorized();
+        boolean isPrivilegedSupported = ShizukuCacheCleaner.isInternalDeleteCachePermissionSupported(this);
 
         // 1. Update Storage Permission state
         if (!hasStoragePermission) {
@@ -286,7 +287,7 @@ public class MainActivity extends Activity {
             tvExplanation.setText(R.string.card_explanation_ready);
             tvDetail.setText(R.string.card_detail_ready);
 
-            if (isAuthorized) {
+            if (isAuthorized && isPrivilegedSupported) {
                 btnFullClean.setVisibility(View.VISIBLE);
                 btnDeepClean.setVisibility(View.VISIBLE);
                 btnPrimaryAction.setText(R.string.btn_standard_clean);
@@ -313,6 +314,10 @@ public class MainActivity extends Activity {
             tvShizukuDesc.setText(R.string.shizuku_desc_unauthorized);
             btnShizukuAction.setText(R.string.shizuku_btn_authorize);
             btnShizukuAction.setVisibility(View.VISIBLE);
+        } else if (!isPrivilegedSupported) {
+            tvShizukuBadge.setText(R.string.shizuku_badge_restricted);
+            tvShizukuDesc.setText(R.string.shizuku_desc_restricted);
+            btnShizukuAction.setVisibility(View.GONE);
         } else {
             tvShizukuBadge.setText(R.string.shizuku_badge_ready);
             tvShizukuDesc.setText(R.string.shizuku_desc_ready);
@@ -361,6 +366,15 @@ public class MainActivity extends Activity {
     }
 
     private void showDeepCleanConfirmationDialog() {
+        if (!ShizukuCacheCleaner.isInternalDeleteCachePermissionSupported(this)) {
+            new AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_restricted_title)
+                .setMessage(R.string.dialog_restricted_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+            return;
+        }
+
         new AlertDialog.Builder(this)
             .setTitle(R.string.dialog_deep_title)
             .setMessage(R.string.dialog_deep_message)
@@ -555,37 +569,52 @@ public class MainActivity extends Activity {
                 ? String.format(Locale.US, "+%.2f MB", deltaMb)
                 : String.format(Locale.US, "%.2f MB", deltaMb);
 
-        String title = isCombinedCleanRunning
-                ? getString(R.string.status_full_completed)
-                : getString(R.string.status_deep_completed);
+        if (result.isPermissionUnsupported) {
+            tvStatusTitle.setText(R.string.status_restricted);
+            llDeepCleanStats.setVisibility(View.VISIBLE);
+            tvDeepCounts.setText("Private cache deletion was silently ignored by ColorOS 11 (requires UID 1000 signature permission). No private cache could be removed.");
+            tvDeepScope.setText("Result: Restricted by OS firmware");
+            vSummaryDivider.setVisibility(View.VISIBLE);
+            llScopeBreakdown.setVisibility(View.VISIBLE);
 
-        llStorageStats.setVisibility(View.VISIBLE);
-        tvStatusTitle.setText(title);
-        tvStorageBefore.setText(String.format(Locale.US, "Before free        %.2f GB", beforeGb));
-        tvStorageAfter.setText(String.format(Locale.US, "After free         %.2f GB", afterGb));
-        tvStorageFreed.setText(String.format(Locale.US, "Overall change     %s", deltaStr));
-
-        // Deep Clean Metrics
-        llDeepCleanStats.setVisibility(View.VISIBLE);
-        String countsText = String.format(Locale.US,
-                "Processed: %d\nCleared successfully: %d\nFailed: %d\nSkipped: %d",
-                result.processed, result.successful, result.failed, result.skipped);
-        tvDeepCounts.setText(countsText);
-
-        String scopeStr = (result.scope == ShizukuCacheCleaner.SCOPE_USER_APPS)
-                ? "Scope: User Apps"
-                : "Scope: User + System Apps";
-        tvDeepScope.setText(scopeStr);
-
-        vSummaryDivider.setVisibility(View.VISIBLE);
-        llScopeBreakdown.setVisibility(View.VISIBLE);
-
-        if (isCombinedCleanRunning) {
-            tvSummaryInternalVal.setText(R.string.summary_internal_val);
-            tvSummaryPrivateVal.setText(R.string.summary_private_val_cleared);
+            if (isCombinedCleanRunning) {
+                tvSummaryInternalVal.setText(R.string.summary_internal_val);
+            } else {
+                tvSummaryInternalVal.setText("Untouched (Deep Clean mode)");
+            }
+            tvSummaryPrivateVal.setText(R.string.summary_private_val_restricted);
         } else {
-            tvSummaryInternalVal.setText("Untouched (Deep Clean mode)");
-            tvSummaryPrivateVal.setText(R.string.summary_private_val_cleared);
+            String title = isCombinedCleanRunning
+                    ? getString(R.string.status_full_completed)
+                    : getString(R.string.status_deep_completed);
+
+            tvStatusTitle.setText(title);
+
+            // Deep Clean Metrics
+            llDeepCleanStats.setVisibility(View.VISIBLE);
+            String countsText = String.format(Locale.US,
+                    "Processed: %d\nCleared successfully: %d\nFailed: %d\nSkipped: %d",
+                    result.processed, result.successful, result.failed, result.skipped);
+            tvDeepCounts.setText(countsText);
+
+            String scopeStr = (result.scope == ShizukuCacheCleaner.SCOPE_USER_APPS)
+                    ? "Scope: User Apps"
+                    : "Scope: User + System Apps";
+            tvDeepScope.setText(scopeStr);
+
+            vSummaryDivider.setVisibility(View.VISIBLE);
+            llScopeBreakdown.setVisibility(View.VISIBLE);
+
+            if (isCombinedCleanRunning) {
+                tvSummaryInternalVal.setText(R.string.summary_internal_val);
+            } else {
+                tvSummaryInternalVal.setText("Untouched (Deep Clean mode)");
+            }
+            if (result.successful > 0) {
+                tvSummaryPrivateVal.setText(R.string.summary_private_val_cleared);
+            } else {
+                tvSummaryPrivateVal.setText(R.string.summary_private_val_restricted);
+            }
         }
 
         isCombinedCleanRunning = false;

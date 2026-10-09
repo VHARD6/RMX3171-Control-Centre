@@ -31,6 +31,14 @@
     <string name="shizuku_badge_ready">DEEP CACHE CLEAN READY</string>
     <string name="shizuku_desc_ready">Uses Shizuku to clear private app cache that Android\'s normal cache cleaner cannot access.</string>
 
+    <!-- Restricted Firmware State -->
+    <string name="shizuku_badge_restricted">PRIVATE CACHE RESTRICTED</string>
+    <string name="shizuku_desc_restricted">ColorOS 11 requires signature-level INTERNAL_DELETE_CACHE_FILES (UID 1000). Shell UID 2000 is silently ignored by the OS. Standard Clean remains available.</string>
+    <string name="dialog_restricted_title">Private Cache Cleaning Restricted</string>
+    <string name="dialog_restricted_message">On this Android 11 / ColorOS 11 firmware, private app cache deletion is gated behind android.permission.INTERNAL_DELETE_CACHE_FILES (UID 1000 / system only).\n\nEven with Shizuku (UID 2000 shell), calls are silently ignored by the OS.\n\nYou can still use Standard Clean to clear all accessible shared-storage cache.</string>
+    <string name="summary_private_val_restricted">Unavailable on this firmware (signature-restricted)</string>
+    <string name="status_restricted">PRIVATE CACHE CLEAN RESTRICTED BY FIRMWARE</string>
+
     <!-- Scope Selector -->
     <string name="scope_title">Package Scope:</string>
     <string name="scope_user_apps">User Apps</string>

@@ -36,6 +36,10 @@ public final class ShizukuCacheCleaner {
     public static final int SCOPE_USER_APPS = 0;
     public static final int SCOPE_USER_AND_SYSTEM = 1;
 
+    public static final int RESULT_SUCCESS = 1;
+    public static final int RESULT_FAILED = 0;
+    public static final int RESULT_TIMED_OUT = -1;
+
     private static final int TIMEOUT_PER_PACKAGE_MS = 1000;
 
     private final Context context;
@@ -52,9 +56,12 @@ public final class ShizukuCacheCleaner {
         public final boolean wasCancelled;
         public final List<String> excludedPackages;
         public final List<String> failedPackages;
+        public final boolean isPermissionUnsupported;
+        public final String limitationReason;
 
         public CleanResult(int totalPackages, int processed, int successful, int failed, int skipped,
-                           int scope, boolean wasCancelled, List<String> excludedPackages, List<String> failedPackages) {
+                           int scope, boolean wasCancelled, List<String> excludedPackages, List<String> failedPackages,
+                           boolean isPermissionUnsupported, String limitationReason) {
             this.totalPackages = totalPackages;
             this.processed = processed;
             this.successful = successful;
@@ -64,6 +71,13 @@ public final class ShizukuCacheCleaner {
             this.wasCancelled = wasCancelled;
             this.excludedPackages = Collections.unmodifiableList(excludedPackages);
             this.failedPackages = Collections.unmodifiableList(failedPackages);
+            this.isPermissionUnsupported = isPermissionUnsupported;
+            this.limitationReason = limitationReason;
+        }
+
+        public CleanResult(int totalPackages, int processed, int successful, int failed, int skipped,
+                           int scope, boolean wasCancelled, List<String> excludedPackages, List<String> failedPackages) {
+            this(totalPackages, processed, successful, failed, skipped, scope, wasCancelled, excludedPackages, failedPackages, false, null);
         }
     }
 
@@ -99,6 +113,16 @@ public final class ShizukuCacheCleaner {
     public static boolean isShizukuAuthorized() {
         try {
             return isShizukuRunning() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static boolean isInternalDeleteCachePermissionSupported(Context context) {
+        try {
+            return context.getPackageManager().checkPermission(
+                "android.permission.INTERNAL_DELETE_CACHE_FILES", "com.android.shell"
+            ) == PackageManager.PERMISSION_GRANTED;
         } catch (Throwable t) {
             return false;
         }
@@ -155,6 +179,13 @@ public final class ShizukuCacheCleaner {
         List<PackageInfo> installedPackages = pm.getInstalledPackages(0);
         if (installedPackages == null) {
             installedPackages = Collections.emptyList();
+        }
+
+        if (!isInternalDeleteCachePermissionSupported(context)) {
+            android.util.Log.w("ShizukuCleaner", "Calling UID 2000 does not have android.permission.INTERNAL_DELETE_CACHE_FILES. Aborting deep clean to avoid silent timeouts.");
+            return new CleanResult(installedPackages.size(), 0, 0, 0, 0, scope, false,
+                    Collections.emptyList(), Collections.emptyList(), true,
+                    "Calling UID 2000 lacks android.permission.INTERNAL_DELETE_CACHE_FILES; ignored by system_server.");
         }
 
         Object ipm = null;
@@ -220,9 +251,16 @@ public final class ShizukuCacheCleaner {
 
             // Eligible package: attempt deletion via Shizuku Binder context
             processed++;
-            boolean success = deletePackageCache(ipm, packageName);
-            if (success) {
+            int status = deletePackageCache(ipm, packageName);
+            if (status == RESULT_SUCCESS) {
                 successful++;
+            } else if (status == RESULT_TIMED_OUT && successful == 0) {
+                failed++;
+                failedList.add(packageName);
+                android.util.Log.w("ShizukuCleaner", "Package cache deletion timed out without callback; system_server is silently ignoring calls.");
+                return new CleanResult(total, processed, successful, failed, skipped, scope, false,
+                        excludedList, failedList, true,
+                        "PackageManager calls silently ignored by system_server (missing INTERNAL_DELETE_CACHE_FILES).");
             } else {
                 failed++;
                 failedList.add(packageName);
@@ -250,10 +288,10 @@ public final class ShizukuCacheCleaner {
         return ipm;
     }
 
-    private static boolean deletePackageCache(Object ipm, String packageName) {
+    private static int deletePackageCache(Object ipm, String packageName) {
         if (ipm == null || packageName == null) {
             android.util.Log.e("ShizukuCleaner", "ipm or packageName is null");
-            return false;
+            return RESULT_FAILED;
         }
 
         final CountDownLatch latch = new CountDownLatch(1);
@@ -332,7 +370,7 @@ public final class ShizukuCacheCleaner {
 
             if (targetMethod == null) {
                 android.util.Log.e("ShizukuCleaner", "targetMethod NOT FOUND in " + ipm.getClass());
-                return false;
+                return RESULT_FAILED;
             }
 
             android.util.Log.i("ShizukuCleaner", "Invoking " + targetMethod.getName() + " for " + packageName);
@@ -345,10 +383,13 @@ public final class ShizukuCacheCleaner {
 
             boolean received = latch.await(TIMEOUT_PER_PACKAGE_MS, TimeUnit.MILLISECONDS);
             android.util.Log.i("ShizukuCleaner", "Latch completed: received=" + received + ", success=" + successHolder[0]);
-            return received && successHolder[0];
+            if (!received) {
+                return RESULT_TIMED_OUT;
+            }
+            return successHolder[0] ? RESULT_SUCCESS : RESULT_FAILED;
         } catch (Throwable t) {
             android.util.Log.e("ShizukuCleaner", "Exception in deletePackageCache for " + packageName, t);
-            return false;
+            return RESULT_FAILED;
         }
     }
 }
