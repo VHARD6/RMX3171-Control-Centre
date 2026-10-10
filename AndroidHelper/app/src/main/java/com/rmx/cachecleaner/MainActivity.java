@@ -79,6 +79,18 @@ public class MainActivity extends Activity {
     // Secondary Action Button
     private Button btnAppInfo;
 
+    // Diagnostic Probe Views (Phase 4)
+    private TextView tvProbeStatus;
+    private Button btnOpenA11ySettings;
+    private Button btnProbeInstagram;
+
+    // Single-App Pilot Views (Phase 4.2)
+    private Button btnTestPilotInstagram;
+    private LinearLayout llPilotResult;
+    private TextView tvPilotOutcomeTitle;
+    private TextView tvPilotOutcomeSummary;
+    private TextView tvPilotCacheDetails;
+
     // State Tracking
     private ShizukuCacheCleaner shizukuCleaner;
     private long freeBytesBefore = 0;
@@ -137,6 +149,7 @@ public class MainActivity extends Activity {
 
         initViews();
         setupListeners();
+        setupPilotController();
 
         try {
             Shizuku.addRequestPermissionResultListener(permissionResultListener);
@@ -189,6 +202,17 @@ public class MainActivity extends Activity {
         btnShizukuAction = findViewById(R.id.btn_shizuku_action);
 
         btnAppInfo = findViewById(R.id.btn_app_info);
+
+        tvProbeStatus = findViewById(R.id.tv_probe_status);
+        btnOpenA11ySettings = findViewById(R.id.btn_open_a11y_settings);
+        btnProbeInstagram = findViewById(R.id.btn_probe_instagram);
+
+        // Phase 4.2 Pilot Views
+        btnTestPilotInstagram = findViewById(R.id.btn_test_pilot_instagram);
+        llPilotResult = findViewById(R.id.ll_pilot_result);
+        tvPilotOutcomeTitle = findViewById(R.id.tv_pilot_outcome_title);
+        tvPilotOutcomeSummary = findViewById(R.id.tv_pilot_outcome_summary);
+        tvPilotCacheDetails = findViewById(R.id.tv_pilot_cache_details);
     }
 
     private void setupListeners() {
@@ -259,12 +283,60 @@ public class MainActivity extends Activity {
                 openAppInfo();
             }
         });
+
+        // Phase 4: Diagnostic Probe Listeners
+        if (btnOpenA11ySettings != null) {
+            btnOpenA11ySettings.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this, R.string.toast_unable_to_open_settings, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+
+        if (btnProbeInstagram != null) {
+            btnProbeInstagram.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.fromParts("package", "com.instagram.android", null));
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this, R.string.toast_unable_to_open_app_info, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+
+        // Phase 4.2: Single-App Pilot Listener
+        if (btnTestPilotInstagram != null) {
+            btnTestPilotInstagram.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showPilotStep1ConfirmationDialog();
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handlePilotIntent(intent);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         updateUiState();
+        handlePilotIntent(getIntent());
     }
 
     private void updateUiState() {
@@ -322,6 +394,18 @@ public class MainActivity extends Activity {
             tvShizukuBadge.setText(R.string.shizuku_badge_ready);
             tvShizukuDesc.setText(R.string.shizuku_desc_ready);
             btnShizukuAction.setVisibility(View.GONE);
+        }
+
+        // 3. Update Diagnostic Probe (Phase 4)
+        if (tvProbeStatus != null) {
+            boolean isProbeActive = SettingsInspectionAccessibilityService.isServiceRunning();
+            if (isProbeActive) {
+                tvProbeStatus.setText(R.string.probe_status_active);
+                tvProbeStatus.setTextColor(getColor(R.color.accent_badge));
+            } else {
+                tvProbeStatus.setText(R.string.probe_status_inactive);
+                tvProbeStatus.setTextColor(getColor(R.color.text_secondary));
+            }
         }
     }
 
@@ -638,6 +722,122 @@ public class MainActivity extends Activity {
             startActivity(intent);
         } catch (Exception e) {
             Toast.makeText(this, R.string.toast_unable_to_open_app_info, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // =========================================================================
+    // Phase 4.2: Single-App Pilot Methods
+    // =========================================================================
+
+    private void setupPilotController() {
+        PilotController.getInstance().setListener(new PilotController.PilotListener() {
+            @Override
+            public void onPilotStateChanged(PilotController.State state, String message) {
+                // Background state changes logged by PilotController
+            }
+
+            @Override
+            public void onPilotFinished(final PilotController.PilotResult result) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        renderPilotResult(result);
+                    }
+                });
+            }
+        });
+    }
+
+    private void handlePilotIntent(Intent intent) {
+        if (intent != null && intent.hasExtra("pilot_outcome")) {
+            PilotController.PilotResult result = PilotController.getInstance().getCurrentResult();
+            renderPilotResult(result);
+            intent.removeExtra("pilot_outcome");
+        }
+    }
+
+    private void showPilotStep1ConfirmationDialog() {
+        if (!SettingsInspectionAccessibilityService.isServiceRunning()) {
+            new AlertDialog.Builder(this)
+                .setTitle("Accessibility Service Required")
+                .setMessage("To test private cache cleaning, RMX Cache Cleaner's Accessibility Service must be enabled in Android Accessibility settings.\n\nPlease enable 'RMX Cache Cleaner Diagnostic Probe' in Accessibility settings and try again.")
+                .setPositiveButton(R.string.btn_open_a11y_settings, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                            startActivity(intent);
+                        } catch (Exception e) {
+                            Toast.makeText(MainActivity.this, R.string.toast_unable_to_open_settings, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.pilot_step1_dialog_title)
+            .setMessage(R.string.pilot_step1_dialog_msg)
+            .setPositiveButton(R.string.pilot_step1_btn_proceed, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    startPilotTest();
+                }
+            })
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    private void startPilotTest() {
+        if (llPilotResult != null) {
+            llPilotResult.setVisibility(View.GONE);
+        }
+        boolean started = PilotController.getInstance().startPilot(this);
+        if (!started) {
+            Toast.makeText(this, "Failed to initiate pilot test.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void renderPilotResult(PilotController.PilotResult result) {
+        if (llPilotResult == null || result == null || result.outcome == PilotController.Outcome.NONE) {
+            return;
+        }
+        llPilotResult.setVisibility(View.VISIBLE);
+
+        switch (result.outcome) {
+            case SUCCESS_VERIFIED:
+                tvPilotOutcomeTitle.setText("PILOT OUTCOME: SUCCESS_VERIFIED");
+                tvPilotOutcomeTitle.setTextColor(getColor(R.color.accent_badge));
+                tvPilotOutcomeSummary.setText(result.summaryMessage);
+                tvPilotCacheDetails.setText(String.format(Locale.US, "Before: %s  |  After: %s", result.cacheBefore, result.cacheAfter));
+                break;
+
+            case ACTION_ATTEMPTED_UNVERIFIED:
+                tvPilotOutcomeTitle.setText("PILOT OUTCOME: ACTION_ATTEMPTED_UNVERIFIED");
+                tvPilotOutcomeTitle.setTextColor(getColor(R.color.text_primary));
+                tvPilotOutcomeSummary.setText(result.summaryMessage);
+                tvPilotCacheDetails.setText(String.format(Locale.US, "Before: %s  |  After: %s", result.cacheBefore, result.cacheAfter));
+                break;
+
+            case FAILED:
+                tvPilotOutcomeTitle.setText("PILOT OUTCOME: FAILED");
+                tvPilotOutcomeTitle.setTextColor(getColor(android.R.color.holo_red_light));
+                tvPilotOutcomeSummary.setText(result.summaryMessage);
+                tvPilotCacheDetails.setText("Safety abort or error. Check Logcat (tag: RMX_PILOT).");
+                break;
+
+            case CANCELLED:
+                tvPilotOutcomeTitle.setText("PILOT OUTCOME: CANCELLED");
+                tvPilotOutcomeTitle.setTextColor(getColor(R.color.text_secondary));
+                tvPilotOutcomeSummary.setText(result.summaryMessage);
+                tvPilotCacheDetails.setText("No cache or data modifications were made.");
+                break;
+
+            default:
+                llPilotResult.setVisibility(View.GONE);
+                break;
         }
     }
 }

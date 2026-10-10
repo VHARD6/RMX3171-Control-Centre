@@ -101,4 +101,25 @@
     <string name="toast_unable_to_open_settings">Unable to open system settings.</string>
     <string name="toast_unable_to_open_app_info">Unable to open app info.</string>
     <string name="footer_note">System-controlled cache cleanup • Official Android 11 API</string>
+
+    <!-- Phase 4: Accessibility Feasibility Probe -->
+    <string name="accessibility_probe_label">RMX Cache Cleaner Diagnostic Probe</string>
+    <string name="accessibility_probe_desc">Diagnostic probe to passively inspect ColorOS 11 Settings screens for cache controls without modifying data or clearing cache.</string>
+    <string name="probe_card_badge">DIAGNOSTIC PROBE (PHASE 4)</string>
+    <string name="probe_status_active">PROBE STATUS: ACTIVE (LISTENING)</string>
+    <string name="probe_status_inactive">PROBE STATUS: INACTIVE</string>
+    <string name="probe_instructions">Passive diagnostic only. Enable the probe in Accessibility Settings, then tap OPEN INSTAGRAM APP INFO and navigate to Storage Usage without tapping Clear Cache. Inspect logcat under tag RMX_A11Y_PROBE.</string>
+    <string name="btn_open_a11y_settings">ACCESSIBILITY SETTINGS</string>
+    <string name="btn_probe_instagram">OPEN INSTAGRAM APP INFO</string>
+
+    <!-- Phase 4.2: Single-App Private Cache Cleaning Pilot -->
+    <string name="pilot_card_badge">SINGLE-APP PILOT (PHASE 4.2)</string>
+    <string name="pilot_btn_title">TEST PRIVATE CACHE CLEANING — INSTAGRAM</string>
+    <string name="pilot_desc">Experimental pilot to test automated navigation and private cache cleaning for Instagram only. Operates under strict dual-confirmation safeguards and never touches app data.</string>
+    <string name="pilot_step1_dialog_title">Test Private Cache Cleaning (Instagram)?</string>
+    <string name="pilot_step1_dialog_msg">This will test automated clearing of Instagram\'s private cache via ColorOS Settings.\n\nFlow:\n1. Opens Instagram\'s App info screen.\n2. Navigates to Storage usage.\n3. Measures displayed cache size.\n4. Shows a final confirmation dialog before clearing.\n\nPersonal data, chats, logins, and photos will remain untouched.\n\nProceed?</string>
+    <string name="pilot_step1_btn_proceed">START TEST</string>
+    <string name="pilot_dialog_title">Confirm Cache Deletion</string>
+    <string name="pilot_status_running">Pilot test in progress…</string>
+    <string name="pilot_outcome_title">PILOT OUTCOME</string>
 </resources>

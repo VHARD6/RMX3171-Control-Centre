@@ -22,12 +22,20 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Phase 4.2: Step 2 Confirmation Dialog Activity -->
+        <activity
+            android:name=".PilotConfirmationDialogActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar"
+            android:exported="false"
+            android:label="@string/pilot_dialog_title" />
 
         <!-- Shizuku IPC Provider -->
         <provider
@@ -37,6 +45,20 @@
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!-- Phase 4: Diagnostic Accessibility Probe Service -->
+        <service
+            android:name=".SettingsInspectionAccessibilityService"
+            android:label="@string/accessibility_probe_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
 
     </application>
 
