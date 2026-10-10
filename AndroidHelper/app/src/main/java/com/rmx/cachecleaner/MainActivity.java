@@ -807,8 +807,15 @@ public class MainActivity extends Activity {
         llPilotResult.setVisibility(View.VISIBLE);
 
         switch (result.outcome) {
-            case SUCCESS_VERIFIED:
-                tvPilotOutcomeTitle.setText("PILOT OUTCOME: SUCCESS_VERIFIED");
+            case ALREADY_CLEAN:
+                tvPilotOutcomeTitle.setText("PILOT OUTCOME: ALREADY_CLEAN");
+                tvPilotOutcomeTitle.setTextColor(getColor(R.color.accent_badge));
+                tvPilotOutcomeSummary.setText(result.summaryMessage);
+                tvPilotCacheDetails.setText(String.format(Locale.US, "Cache: %s  |  'Clear cache' disabled", result.cacheBefore));
+                break;
+
+            case SETTINGS_UI_CONFIRMED:
+                tvPilotOutcomeTitle.setText("PILOT OUTCOME: SETTINGS_UI_CONFIRMED");
                 tvPilotOutcomeTitle.setTextColor(getColor(R.color.accent_badge));
                 tvPilotOutcomeSummary.setText(result.summaryMessage);
                 tvPilotCacheDetails.setText(String.format(Locale.US, "Before: %s  |  After: %s", result.cacheBefore, result.cacheAfter));

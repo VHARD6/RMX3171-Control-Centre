@@ -35,6 +35,9 @@
             android:name=".PilotConfirmationDialogActivity"
             android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar"
             android:exported="false"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
             android:label="@string/pilot_dialog_title" />
 
         <!-- Shizuku IPC Provider -->

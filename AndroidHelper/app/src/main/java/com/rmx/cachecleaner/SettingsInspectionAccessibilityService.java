@@ -243,6 +243,7 @@ public class SettingsInspectionAccessibilityService extends AccessibilityService
         isRunning = false;
         instance = null;
         Log.i(TAG, "SettingsInspectionAccessibilityService UNBOUND / STOPPED.");
+        PilotController.getInstance().onServiceDisconnected();
         broadcastState();
         return super.onUnbind(intent);
     }
@@ -253,6 +254,7 @@ public class SettingsInspectionAccessibilityService extends AccessibilityService
         isRunning = false;
         instance = null;
         Log.i(TAG, "SettingsInspectionAccessibilityService DESTROYED.");
+        PilotController.getInstance().onServiceDisconnected();
         broadcastState();
     }
 

@@ -20,8 +20,10 @@ public class PilotConfirmationDialogActivity extends Activity {
         setFinishOnTouchOutside(false);
         setContentView(R.layout.dialog_pilot_confirmation);
 
+        String targetLabel = getIntent().getStringExtra("target_label");
         String pkg = getIntent().getStringExtra("target_package");
         if (pkg == null) pkg = PilotController.TARGET_PACKAGE;
+        if (targetLabel == null || targetLabel.isEmpty()) targetLabel = "Instagram";
 
         String cacheBefore = getIntent().getStringExtra("cache_before");
         if (cacheBefore == null || cacheBefore.isEmpty()) cacheBefore = "Unknown";
@@ -32,7 +34,7 @@ public class PilotConfirmationDialogActivity extends Activity {
         Button btnProceed = findViewById(R.id.btn_dialog_proceed);
 
         if (tvPkg != null) {
-            tvPkg.setText("Target: " + pkg);
+            tvPkg.setText("Target: " + targetLabel + " (" + pkg + ")");
         }
 
         if (tvCache != null) {
