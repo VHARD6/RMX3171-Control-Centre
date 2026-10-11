@@ -1,64 +1,134 @@
 package com.rmx.cachecleaner;
 
+import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.app.Activity;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * Phase 5: Multi-App Selection and Batch Cleaning Activity.
- * Displays allowlisted third-party applications, handles user selection,
- * displays upfront batch confirmation, and monitors guarded sequential execution.
+ * Phase 6 & Phase 7: Multi-App Selection and Batch Cleaning Activity.
+ * Displays all installed applications using RecyclerView for 60 FPS recycling,
+ * dynamically detects future app installations via BroadcastReceiver and onResume discovery,
+ * provides manual on-demand refresh, handles user selection, upfront batch confirmation,
+ * monitors guarded sequential execution, provides live accessibility service status,
+ * and transparently reports results.
  */
-public class AppSelectionActivity extends Activity implements PilotController.BatchListener {
+public class AppSelectionActivity extends Activity implements PilotController.BatchListener, PilotController.PilotListener {
 
-    private LinearLayout llTargetAppsList;
+    private static final String TAG = "RMX_DYNAMIC_DISCOVERY";
+    private static final ExecutorService ICON_LOADER_EXECUTOR = Executors.newFixedThreadPool(4);
+    private static final Map<String, Drawable> ICON_CACHE = new ConcurrentHashMap<>();
+
+    // Accessibility Service Status Card
+    private LinearLayout llA11yStatusCard;
+    private TextView tvA11yStatusBadge;
+    private TextView tvA11yStatusDesc;
+    private Button btnOpenA11ySettings;
+
+    // Selection & Filter Controls
+    private ImageButton btnRefreshApps;
+    private EditText etSearchApps;
+    private RecyclerView rvTargetApps;
+    private TargetAppAdapter adapter;
     private TextView tvSelectionCount;
-    private Button btnToggleSelectAll;
+    private Button btnSelectAll;
+    private Button btnDeselectAll;
+    private Button btnInvertSelection;
+    private TextView tvSelectionHint;
     private Button btnCleanSelected;
     private Button btnCancelBatch;
     private TextView tvEmptyNotice;
 
     // Batch progress & summary containers
     private LinearLayout llBatchProgress;
+    private TextView tvBatchProgressTitle;
     private TextView tvBatchProgressMessage;
+    private TextView tvBatchProgressStep;
     private ProgressBar pbBatchProgress;
     private LinearLayout llBatchSummary;
+    private TextView tvBatchSummaryTitle;
     private TextView tvBatchSummaryText;
 
     private List<TargetApp> targetApps = new ArrayList<>();
-    private final Map<String, View> appRowViews = new HashMap<>();
-    private boolean isAllSelected = true;
+    private String currentSearchQuery = "";
     private boolean isCleaningInProgress = false;
+
+    // Dynamic package installation detection
+    private BroadcastReceiver packageChangeReceiver;
+    private boolean isReceiverRegistered = false;
+    private boolean needsRefreshAfterBatch = false;
+
+    // Persistent package-based selection state
+    private final Set<String> selectedPackages = new HashSet<>();
+    private boolean hasInitializedSelection = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_app_selection);
 
+        PilotController.getInstance().setListener(this);
         initViews();
         loadSupportedApps();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        registerPackageReceiver();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterPackageReceiver();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterPackageReceiver();
+        PilotController.getInstance().setListener(null);
     }
 
     private void initViews() {
@@ -76,25 +146,116 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
             });
         }
 
-        llTargetAppsList = findViewById(R.id.ll_target_apps_list);
+        btnRefreshApps = findViewById(R.id.btn_refresh_apps);
+        if (btnRefreshApps != null) {
+            btnRefreshApps.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (isCleaningInProgress) {
+                        Toast.makeText(AppSelectionActivity.this, "Cannot refresh while cleaning is in progress.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    refreshAppInventory(true);
+                }
+            });
+        }
+
+        // Accessibility card views
+        llA11yStatusCard = findViewById(R.id.ll_a11y_status_card);
+        tvA11yStatusBadge = findViewById(R.id.tv_a11y_status_badge);
+        tvA11yStatusDesc = findViewById(R.id.tv_a11y_status_desc);
+        btnOpenA11ySettings = findViewById(R.id.btn_open_a11y_settings);
+
+        if (btnOpenA11ySettings != null) {
+            btnOpenA11ySettings.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    } catch (Exception e) {
+                        Toast.makeText(AppSelectionActivity.this, "Unable to open Settings.", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+
+        etSearchApps = findViewById(R.id.et_search_apps);
+        rvTargetApps = findViewById(R.id.rv_target_apps);
         tvSelectionCount = findViewById(R.id.tv_selection_count);
-        btnToggleSelectAll = findViewById(R.id.btn_toggle_select_all);
+        btnSelectAll = findViewById(R.id.btn_select_all);
+        btnDeselectAll = findViewById(R.id.btn_deselect_all);
+        btnInvertSelection = findViewById(R.id.btn_invert_selection);
+        tvSelectionHint = findViewById(R.id.tv_selection_hint);
         btnCleanSelected = findViewById(R.id.btn_clean_selected);
         btnCancelBatch = findViewById(R.id.btn_cancel_batch);
         tvEmptyNotice = findViewById(R.id.tv_empty_notice);
 
         llBatchProgress = findViewById(R.id.ll_batch_progress);
+        tvBatchProgressTitle = findViewById(R.id.tv_batch_progress_title);
         tvBatchProgressMessage = findViewById(R.id.tv_batch_progress_message);
+        tvBatchProgressStep = findViewById(R.id.tv_batch_progress_step);
         pbBatchProgress = findViewById(R.id.pb_batch_progress);
+
         llBatchSummary = findViewById(R.id.ll_batch_summary);
+        tvBatchSummaryTitle = findViewById(R.id.tv_batch_summary_title);
         tvBatchSummaryText = findViewById(R.id.tv_batch_summary_text);
 
-        btnToggleSelectAll.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                toggleSelectAll();
-            }
-        });
+        // Configure RecyclerView
+        rvTargetApps.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new TargetAppAdapter();
+        rvTargetApps.setAdapter(adapter);
+
+        if (etSearchApps != null) {
+            final Handler searchDebounceHandler = new Handler(Looper.getMainLooper());
+            final Runnable searchRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    applySearchFilter();
+                }
+            };
+
+            etSearchApps.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    currentSearchQuery = (s != null) ? s.toString().trim() : "";
+                    searchDebounceHandler.removeCallbacks(searchRunnable);
+                    searchDebounceHandler.postDelayed(searchRunnable, 100);
+                }
+
+                @Override
+                public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        if (btnSelectAll != null) {
+            btnSelectAll.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    setSelectionState(true);
+                }
+            });
+        }
+
+        if (btnDeselectAll != null) {
+            btnDeselectAll.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    setSelectionState(false);
+                }
+            });
+        }
+
+        if (btnInvertSelection != null) {
+            btnInvertSelection.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    invertSelection();
+                }
+            });
+        }
 
         btnCleanSelected.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -109,98 +270,241 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 PilotController.getInstance().cancelBatch("User cancelled via UI button");
             }
         });
+
+        updateAccessibilityStatusBanner();
+    }
+
+    private void updateAccessibilityStatusBanner() {
+        boolean running = SettingsInspectionAccessibilityService.isServiceRunning();
+        if (tvA11yStatusBadge == null || tvA11yStatusDesc == null || btnOpenA11ySettings == null) return;
+
+        if (running) {
+            tvA11yStatusBadge.setText("ACTIVE");
+            tvA11yStatusBadge.setTextColor(getColor(R.color.accent_badge));
+            tvA11yStatusDesc.setText("Accessibility service is active and ready for guarded Settings automation.");
+            btnOpenA11ySettings.setVisibility(View.GONE);
+        } else {
+            tvA11yStatusBadge.setText("DISABLED");
+            tvA11yStatusBadge.setTextColor(getColor(android.R.color.holo_red_light));
+            tvA11yStatusDesc.setText("Required for guarded cache cleaning. Enable RMX Cache Cleaner in Android Accessibility settings.");
+            btnOpenA11ySettings.setVisibility(View.VISIBLE);
+        }
     }
 
     private void loadSupportedApps() {
-        PackageManager pm = getPackageManager();
-        targetApps = SupportedAppsRegistry.getInstalledSupportedApps(pm);
+        refreshAppInventory(false);
+    }
 
-        llTargetAppsList.removeAllViews();
-        appRowViews.clear();
-
-        if (targetApps.isEmpty()) {
-            tvEmptyNotice.setVisibility(View.VISIBLE);
-            btnCleanSelected.setEnabled(false);
-            btnToggleSelectAll.setEnabled(false);
-            tvSelectionCount.setText("Supported Applications (0)");
+    /**
+     * Dynamically queries PackageManager to refresh installed apps.
+     * Preserves active user selection by package name for persisting apps and keeps newly discovered apps unselected.
+     */
+    private void refreshAppInventory(boolean notifyUser) {
+        if (isCleaningInProgress) {
+            needsRefreshAfterBatch = true;
             return;
         }
 
-        tvEmptyNotice.setVisibility(View.GONE);
-        btnCleanSelected.setEnabled(true);
-        btnToggleSelectAll.setEnabled(true);
+        PackageManager pm = getPackageManager();
+        List<TargetApp> freshApps = SupportedAppsRegistry.getInstalledEligibleApps(pm);
 
-        LayoutInflater inflater = LayoutInflater.from(this);
-        for (final TargetApp app : targetApps) {
-            View row = inflater.inflate(R.layout.item_target_app, llTargetAppsList, false);
+        // Track previous execution statuses
+        Map<String, TargetApp.Status> prevStatuses = new HashMap<>();
+        Map<String, String> prevDetails = new HashMap<>();
+        Map<String, String> prevCacheBefore = new HashMap<>();
+        Map<String, String> prevCacheAfter = new HashMap<>();
 
-            final CheckBox cbSelect = row.findViewById(R.id.cb_app_select);
-            ImageView ivIcon = row.findViewById(R.id.iv_app_icon);
-            TextView tvLabel = row.findViewById(R.id.tv_app_label);
-            TextView tvPackage = row.findViewById(R.id.tv_app_package);
-            TextView tvDetail = row.findViewById(R.id.tv_app_detail);
-            TextView tvStatusBadge = row.findViewById(R.id.tv_app_status_badge);
-
-            tvLabel.setText(app.getResolvedLabel());
-            tvPackage.setText(app.getPackageName());
-            tvDetail.setText(app.getStatusDetail());
-            cbSelect.setChecked(app.isSelected());
-
-            // Load app icon
-            try {
-                Drawable icon = pm.getApplicationIcon(app.getPackageName());
-                ivIcon.setImageDrawable(icon);
-            } catch (Exception ignored) {}
-
-            updateBadgeAppearance(tvStatusBadge, app.getStatus());
-
-            cbSelect.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    app.setSelected(isChecked);
-                    updateSelectionSummary();
-                }
-            });
-
-            row.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (!isCleaningInProgress) {
-                        cbSelect.setChecked(!cbSelect.isChecked());
-                    }
-                }
-            });
-
-            appRowViews.put(app.getPackageName(), row);
-            llTargetAppsList.addView(row);
+        if (targetApps != null) {
+            for (TargetApp oldApp : targetApps) {
+                String pkg = oldApp.getPackageName();
+                prevStatuses.put(pkg, oldApp.getStatus());
+                prevDetails.put(pkg, oldApp.getStatusDetail());
+                prevCacheBefore.put(pkg, oldApp.getCacheBefore());
+                prevCacheAfter.put(pkg, oldApp.getCacheAfter());
+            }
         }
 
-        updateSelectionSummary();
+        int newAppsCount = 0;
+        if (!hasInitializedSelection) {
+            // First initialization: all selectable eligible apps start selected by default
+            selectedPackages.clear();
+            for (TargetApp freshApp : freshApps) {
+                if (!freshApp.isProtected()) {
+                    selectedPackages.add(freshApp.getPackageName());
+                    freshApp.setSelected(true);
+                } else {
+                    freshApp.setSelected(false);
+                }
+            }
+            hasInitializedSelection = true;
+        } else {
+            // Subsequent runs: preserve exact selection by package name
+            for (TargetApp freshApp : freshApps) {
+                String pkg = freshApp.getPackageName();
+                if (freshApp.isProtected()) {
+                    freshApp.setSelected(false);
+                    selectedPackages.remove(pkg);
+                } else if (selectedPackages.contains(pkg)) {
+                    // Previously selected installed app
+                    freshApp.setSelected(true);
+                } else if (prevStatuses.containsKey(pkg)) {
+                    // Previously known installed app that was unselected by user
+                    freshApp.setSelected(false);
+                } else {
+                    // Newly discovered app: default to unselected for batch safety
+                    newAppsCount++;
+                    freshApp.setSelected(false);
+                    if (!freshApp.isProtected()) {
+                        freshApp.setStatus(TargetApp.Status.PENDING);
+                        freshApp.setStatusDetail("Newly installed • Ready for cleaning");
+                    }
+                }
+
+                // Restore cleaning status if processed in this session
+                TargetApp.Status prevStatus = prevStatuses.get(pkg);
+                if (prevStatus != null && prevStatus != TargetApp.Status.PENDING) {
+                    freshApp.setStatus(prevStatus);
+                    freshApp.setStatusDetail(prevDetails.get(pkg));
+                    freshApp.setCacheBefore(prevCacheBefore.get(pkg));
+                    freshApp.setCacheAfter(prevCacheAfter.get(pkg));
+                }
+            }
+        }
+
+        // Clean up selectedPackages for any apps that are no longer installed
+        Set<String> installedPkgs = new HashSet<>();
+        for (TargetApp app : freshApps) {
+            installedPkgs.add(app.getPackageName());
+        }
+        selectedPackages.retainAll(installedPkgs);
+
+        targetApps = freshApps;
+        applySearchFilter();
+
+        if (notifyUser) {
+            String msg = (newAppsCount > 0)
+                    ? String.format(Locale.US, "Refreshed: %d new app(s) discovered (%d total).", newAppsCount, targetApps.size())
+                    : String.format(Locale.US, "Refreshed: %d installed apps up to date.", targetApps.size());
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void applySearchFilter() {
+        if (targetApps.isEmpty()) {
+            tvEmptyNotice.setVisibility(View.VISIBLE);
+            tvEmptyNotice.setText("No installed applications found on this device.");
+            btnCleanSelected.setEnabled(false);
+            if (btnSelectAll != null) btnSelectAll.setEnabled(false);
+            if (btnDeselectAll != null) btnDeselectAll.setEnabled(false);
+            if (btnInvertSelection != null) btnInvertSelection.setEnabled(false);
+            tvSelectionCount.setText("Installed Apps (0)");
+            adapter.setApps(Collections.<TargetApp>emptyList());
+            return;
+        }
+
+        List<TargetApp> displayedApps = SupportedAppsRegistry.filterApps(targetApps, currentSearchQuery);
+
+        if (displayedApps.isEmpty()) {
+            tvEmptyNotice.setVisibility(View.VISIBLE);
+            tvEmptyNotice.setText("No installed applications matched \"" + currentSearchQuery + "\"");
+        } else {
+            tvEmptyNotice.setVisibility(View.GONE);
+        }
+
+        adapter.setApps(displayedApps);
+        updateSelectionSummary(displayedApps.size());
     }
 
     private void updateSelectionSummary() {
-        int selected = 0;
-        for (TargetApp app : targetApps) {
-            if (app.isSelected()) selected++;
-        }
-        tvSelectionCount.setText(String.format(Locale.US, "Supported Applications (%d of %d selected)", selected, targetApps.size()));
-        btnCleanSelected.setText(String.format(Locale.US, "CLEAN SELECTED APPS (%d)", selected));
-        btnCleanSelected.setEnabled(selected > 0 && !isCleaningInProgress);
-        isAllSelected = (selected == targetApps.size());
-        btnToggleSelectAll.setText(isAllSelected ? "Deselect All" : "Select All");
+        int count = currentSearchQuery.isEmpty() ? targetApps.size() : SupportedAppsRegistry.filterApps(targetApps, currentSearchQuery).size();
+        updateSelectionSummary(count);
     }
 
-    private void toggleSelectAll() {
-        boolean newState = !isAllSelected;
+    private void updateSelectionSummary(int displayedCount) {
+        int selected = 0;
+        int selectableCount = 0;
         for (TargetApp app : targetApps) {
-            app.setSelected(newState);
-            View row = appRowViews.get(app.getPackageName());
-            if (row != null) {
-                CheckBox cb = row.findViewById(R.id.cb_app_select);
-                if (cb != null) cb.setChecked(newState);
+            if (!app.isProtected()) {
+                selectableCount++;
+                if (app.isSelected()) selected++;
             }
         }
-        updateSelectionSummary();
+
+        if (currentSearchQuery.isEmpty()) {
+            tvSelectionCount.setText(String.format(Locale.US,
+                    "Installed Apps (%d of %d selectable selected • %d total)", selected, selectableCount, targetApps.size()));
+        } else {
+            tvSelectionCount.setText(String.format(Locale.US,
+                    "Installed Apps (%d of %d selectable selected • %d showing of %d total)", selected, selectableCount, displayedCount, targetApps.size()));
+        }
+
+        if (selected == 0) {
+            btnCleanSelected.setText("SELECT APPS TO CLEAN");
+            btnCleanSelected.setEnabled(false);
+            if (tvSelectionHint != null) {
+                tvSelectionHint.setVisibility(View.VISIBLE);
+                tvSelectionHint.setText("Select at least 1 application to begin cleaning.");
+            }
+        } else {
+            btnCleanSelected.setText(String.format(Locale.US, "CLEAN SELECTED APPS (%d)", selected));
+            btnCleanSelected.setEnabled(!isCleaningInProgress);
+            if (tvSelectionHint != null) {
+                tvSelectionHint.setVisibility(View.GONE);
+            }
+        }
+
+        boolean hasSelectable = selectableCount > 0;
+        if (btnSelectAll != null) btnSelectAll.setEnabled(!isCleaningInProgress && hasSelectable);
+        if (btnDeselectAll != null) btnDeselectAll.setEnabled(!isCleaningInProgress && hasSelectable);
+        if (btnInvertSelection != null) btnInvertSelection.setEnabled(!isCleaningInProgress && hasSelectable);
+    }
+
+    private void setSelectionState(boolean selected) {
+        if (isCleaningInProgress) return;
+        List<TargetApp> affected = currentSearchQuery.isEmpty()
+                ? targetApps
+                : SupportedAppsRegistry.filterApps(targetApps, currentSearchQuery);
+
+        for (TargetApp app : affected) {
+            if (app.isProtected()) continue;
+            app.setSelected(selected);
+            if (selected) {
+                selectedPackages.add(app.getPackageName());
+            } else {
+                selectedPackages.remove(app.getPackageName());
+            }
+        }
+        adapter.notifyDataSetChanged();
+        updateSelectionSummary(affected.size());
+    }
+
+    private void invertSelection() {
+        if (isCleaningInProgress) return;
+        List<TargetApp> affected = currentSearchQuery.isEmpty()
+                ? targetApps
+                : SupportedAppsRegistry.filterApps(targetApps, currentSearchQuery);
+
+        for (TargetApp app : affected) {
+            if (app.isProtected()) continue;
+            boolean newSelected = !app.isSelected();
+            app.setSelected(newSelected);
+            if (newSelected) {
+                selectedPackages.add(app.getPackageName());
+            } else {
+                selectedPackages.remove(app.getPackageName());
+            }
+        }
+        adapter.notifyDataSetChanged();
+        updateSelectionSummary(affected.size());
+    }
+
+    private void setSelectionControlsEnabled(boolean enabled) {
+        if (etSearchApps != null) etSearchApps.setEnabled(enabled);
+        if (btnSelectAll != null) btnSelectAll.setEnabled(enabled && !targetApps.isEmpty());
+        if (btnDeselectAll != null) btnDeselectAll.setEnabled(enabled && !targetApps.isEmpty());
+        if (btnInvertSelection != null) btnInvertSelection.setEnabled(enabled && !targetApps.isEmpty());
+        if (btnRefreshApps != null) btnRefreshApps.setEnabled(enabled);
+        adapter.setSelectable(enabled);
     }
 
     private void showBatchConfirmationDialog() {
@@ -234,74 +538,78 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         }
 
         StringBuilder msg = new StringBuilder();
-        msg.append("You are about to clear the private cache for the following ");
-        msg.append(selectedApps.size()).append(" application(s):\n\n");
-        for (TargetApp app : selectedApps) {
-            msg.append("• ").append(app.getResolvedLabel())
-               .append(" (").append(app.getPackageName()).append(")\n");
+        msg.append("The following ").append(selectedApps.size())
+           .append(" application(s) will be processed sequentially:\n\n");
+        for (int i = 0; i < selectedApps.size(); i++) {
+            TargetApp app = selectedApps.get(i);
+            msg.append(i + 1).append(". ")
+               .append(app.getResolvedLabel())
+               .append("\n    Package: ")
+               .append(app.getPackageName())
+               .append("\n");
         }
-        msg.append("\nEach application will be opened sequentially, identity verified on App Info and Storage usage, and only its cache cleared.\n\n");
-        msg.append("Personal account data and app storage will NOT be affected.\n\nProceed?");
+        msg.append("\n• Only private cache will be cleared.")
+           .append("\n• Each app undergoes dual identity verification.")
+           .append("\n• Protected components and user data are never touched.");
 
         new AlertDialog.Builder(this)
-                .setTitle("Confirm Multi-App Cleaning")
+                .setTitle("Confirm Batch Cleaning")
                 .setMessage(msg.toString())
-                .setPositiveButton("START CLEANING", new DialogInterface.OnClickListener() {
+                .setPositiveButton("CONFIRM & START", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        startBatchExecution(selectedApps);
+                        startBatchCleaning(selectedApps);
                     }
                 })
                 .setNegativeButton("CANCEL", null)
                 .show();
     }
 
-    private void startBatchExecution(List<TargetApp> selectedApps) {
+    private void startBatchCleaning(List<TargetApp> selectedApps) {
         isCleaningInProgress = true;
+        setSelectionControlsEnabled(false);
         btnCleanSelected.setEnabled(false);
-        btnToggleSelectAll.setEnabled(false);
         btnCancelBatch.setVisibility(View.VISIBLE);
-
-        llBatchSummary.setVisibility(View.GONE);
         llBatchProgress.setVisibility(View.VISIBLE);
-        tvBatchProgressMessage.setText(String.format(Locale.US, "Starting batch of %d app(s)...", selectedApps.size()));
+        llBatchSummary.setVisibility(View.GONE);
 
-        // Reset display state of rows
+        // Mark apps queued/skipped
         for (TargetApp app : targetApps) {
+            if (app.isProtected()) {
+                continue;
+            }
             if (app.isSelected()) {
                 app.setStatus(TargetApp.Status.PENDING);
-                app.setStatusDetail("Pending");
+                app.setStatusDetail("Queued for cleaning");
             } else {
                 app.setStatus(TargetApp.Status.SKIPPED);
                 app.setStatusDetail("Not selected");
             }
-            updateAppRowDisplay(app);
+            adapter.updateApp(app);
         }
 
         boolean started = PilotController.getInstance().startBatch(this, selectedApps, this);
         if (!started) {
             isCleaningInProgress = false;
+            setSelectionControlsEnabled(true);
             btnCleanSelected.setEnabled(true);
-            btnToggleSelectAll.setEnabled(true);
             btnCancelBatch.setVisibility(View.GONE);
             llBatchProgress.setVisibility(View.GONE);
             Toast.makeText(this, "Failed to start batch cleaner.", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void updateAppRowDisplay(TargetApp app) {
-        View row = appRowViews.get(app.getPackageName());
-        if (row != null) {
-            TextView tvDetail = row.findViewById(R.id.tv_app_detail);
-            TextView tvBadge = row.findViewById(R.id.tv_app_status_badge);
-            if (tvDetail != null) tvDetail.setText(app.getStatusDetail());
-            if (tvBadge != null) updateBadgeAppearance(tvBadge, app.getStatus());
-        }
-    }
-
     private void updateBadgeAppearance(TextView badge, TargetApp.Status status) {
         if (badge == null || status == null) return;
         switch (status) {
+            case PROTECTED:
+                badge.setText("PROTECTED");
+                badge.setTextColor(getColor(R.color.badge_protected));
+                break;
+            case DISABLED:
+                badge.setText("DISABLED");
+                badge.setTextColor(getColor(R.color.badge_disabled));
+                break;
             case PENDING:
                 badge.setText("READY");
                 badge.setTextColor(getColor(R.color.accent_badge));
@@ -326,7 +634,84 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 badge.setText("SKIPPED");
                 badge.setTextColor(getColor(R.color.text_secondary));
                 break;
+            case CANCELLED:
+                badge.setText("CANCELLED");
+                badge.setTextColor(getColor(android.R.color.holo_orange_light));
+                break;
         }
+    }
+
+    // =========================================================================
+    // Dynamic Package Installation Broadcast Receiver
+    // =========================================================================
+
+    private void registerPackageReceiver() {
+        if (isReceiverRegistered) return;
+        packageChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                String action = intent.getAction();
+                Uri data = intent.getData();
+                String pkg = (data != null) ? data.getSchemeSpecificPart() : null;
+                Log.i(TAG, "Package broadcast received: " + action + " for " + pkg);
+
+                // Evict cached icon so new/updated icons load immediately
+                if (pkg != null) {
+                    ICON_CACHE.remove(pkg);
+                    if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
+                        SupportedAppsRegistry.unregisterAllowedPackage(pkg);
+                        selectedPackages.remove(pkg);
+                    }
+                }
+
+                if (isCleaningInProgress) {
+                    // Avoid disturbing an active cleaning batch; refresh once batch completes
+                    needsRefreshAfterBatch = true;
+                } else {
+                    refreshAppInventory(false);
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_PACKAGE_ADDED);
+        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        filter.addDataScheme("package");
+        registerReceiver(packageChangeReceiver, filter);
+        isReceiverRegistered = true;
+    }
+
+    private void unregisterPackageReceiver() {
+        if (isReceiverRegistered && packageChangeReceiver != null) {
+            try {
+                unregisterReceiver(packageChangeReceiver);
+            } catch (Exception ignored) {}
+            isReceiverRegistered = false;
+        }
+    }
+
+    // =========================================================================
+    // PilotController.PilotListener Callbacks
+    // =========================================================================
+
+    @Override
+    public void onPilotStateChanged(final PilotController.State state, final String message) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (isCleaningInProgress && tvBatchProgressStep != null) {
+                    tvBatchProgressStep.setText(message);
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onPilotFinished(PilotController.PilotResult result) {
+        // Individual pilot finished; batch listener aggregates results
     }
 
     // =========================================================================
@@ -340,8 +725,9 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
             public void run() {
                 llBatchProgress.setVisibility(View.VISIBLE);
                 tvBatchProgressMessage.setText(String.format(Locale.US,
-                        "Processing %d of %d: %s...", currentIndex + 1, total, currentApp.getResolvedLabel()));
-                updateAppRowDisplay(currentApp);
+                        "Processing %d of %d: %s", currentIndex + 1, total, currentApp.getResolvedLabel()));
+                tvBatchProgressStep.setText("Opening App Info & verifying identity...");
+                adapter.updateApp(currentApp);
             }
         });
     }
@@ -351,7 +737,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                updateAppRowDisplay(app);
+                adapter.updateApp(app);
             }
         });
     }
@@ -362,16 +748,34 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
             @Override
             public void run() {
                 isCleaningInProgress = false;
+                setSelectionControlsEnabled(true);
                 btnCancelBatch.setVisibility(View.GONE);
                 llBatchProgress.setVisibility(View.GONE);
                 updateSelectionSummary();
 
                 for (TargetApp app : batchResults) {
-                    updateAppRowDisplay(app);
+                    adapter.updateApp(app);
                 }
 
                 llBatchSummary.setVisibility(View.VISIBLE);
+
+                if (summary.startsWith("Batch cancelled")) {
+                    tvBatchSummaryTitle.setText("BATCH CANCELLED");
+                    tvBatchSummaryTitle.setTextColor(getColor(android.R.color.holo_orange_light));
+                } else if (summary.startsWith("Batch stopped") || summary.startsWith("Batch finished with partial issues")) {
+                    tvBatchSummaryTitle.setText("BATCH STOPPED (PARTIAL)");
+                    tvBatchSummaryTitle.setTextColor(getColor(android.R.color.holo_red_light));
+                } else {
+                    tvBatchSummaryTitle.setText("BATCH RESULTS SUMMARY");
+                    tvBatchSummaryTitle.setTextColor(getColor(R.color.accent_badge));
+                }
+
                 tvBatchSummaryText.setText(summary);
+
+                if (needsRefreshAfterBatch) {
+                    needsRefreshAfterBatch = false;
+                    refreshAppInventory(false);
+                }
             }
         });
     }
@@ -379,10 +783,168 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     @Override
     protected void onResume() {
         super.onResume();
-        // If batch finished in background, refresh views
-        if (!isCleaningInProgress && !targetApps.isEmpty()) {
-            for (TargetApp app : targetApps) {
-                updateAppRowDisplay(app);
+        updateAccessibilityStatusBanner();
+
+        if (!isCleaningInProgress) {
+            // Automatically detect any installs/uninstalls that happened while in background
+            refreshAppInventory(false);
+        }
+    }
+
+    // =========================================================================
+    // RecyclerView Adapter
+    // =========================================================================
+
+    private class TargetAppAdapter extends RecyclerView.Adapter<TargetAppAdapter.ViewHolder> {
+        private List<TargetApp> apps = new ArrayList<>();
+        private boolean isSelectable = true;
+
+        public void setApps(List<TargetApp> newApps) {
+            this.apps = (newApps != null) ? newApps : Collections.<TargetApp>emptyList();
+            notifyDataSetChanged();
+        }
+
+        public void setSelectable(boolean selectable) {
+            this.isSelectable = selectable;
+            notifyDataSetChanged();
+        }
+
+        public void updateApp(TargetApp app) {
+            if (app == null) return;
+            for (int i = 0; i < apps.size(); i++) {
+                if (apps.get(i).getPackageName().equals(app.getPackageName())) {
+                    notifyItemChanged(i);
+                    break;
+                }
+            }
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_target_app, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
+            final TargetApp app = apps.get(position);
+            holder.tvLabel.setText(app.getResolvedLabel());
+            holder.tvPackage.setText(app.getPackageName());
+
+            if (holder.tvClassification != null) {
+                TargetApp.Classification cl = app.getClassification();
+                holder.tvClassification.setText(cl.getDisplayName());
+                if (cl == TargetApp.Classification.USER_APP) {
+                    holder.tvClassification.setTextColor(getColor(R.color.badge_user_app));
+                } else if (cl == TargetApp.Classification.PREINSTALLED_APP) {
+                    holder.tvClassification.setTextColor(getColor(R.color.badge_preinstalled));
+                } else {
+                    holder.tvClassification.setTextColor(getColor(R.color.badge_protected));
+                }
+            }
+
+            if (app.isProtected()) {
+                holder.tvDetail.setText(app.getStatusDetail());
+                holder.cbSelect.setEnabled(false);
+                holder.cbSelect.setChecked(false);
+                holder.itemView.setAlpha(0.65f);
+            } else {
+                if (app.getStatus() == TargetApp.Status.PENDING && (app.getCacheBefore() == null || app.getCacheBefore().isEmpty())) {
+                    holder.tvDetail.setText("Cache: Measured live during cleaning");
+                } else {
+                    holder.tvDetail.setText(app.getStatusDetail());
+                }
+                holder.cbSelect.setEnabled(isSelectable && !isCleaningInProgress);
+                holder.cbSelect.setChecked(app.isSelected());
+                holder.itemView.setAlpha(1.0f);
+            }
+
+            // Asynchronous icon loading with cache
+            final String pkg = app.getPackageName();
+            Drawable cachedIcon = ICON_CACHE.get(pkg);
+            if (cachedIcon != null) {
+                holder.ivIcon.setImageDrawable(cachedIcon);
+            } else {
+                holder.ivIcon.setImageResource(R.drawable.ic_broom);
+                holder.ivIcon.setTag(pkg);
+                final PackageManager pm = getPackageManager();
+                ICON_LOADER_EXECUTOR.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            final Drawable icon = pm.getApplicationIcon(pkg);
+                            if (icon != null) {
+                                ICON_CACHE.put(pkg, icon);
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        if (pkg.equals(holder.ivIcon.getTag())) {
+                                            holder.ivIcon.setImageDrawable(icon);
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                });
+            }
+
+            updateBadgeAppearance(holder.tvStatusBadge, app.getStatus());
+
+            holder.cbSelect.setOnCheckedChangeListener(null);
+            holder.cbSelect.setChecked(app.isSelected());
+            holder.cbSelect.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    if (!app.isProtected()) {
+                        app.setSelected(isChecked);
+                        if (isChecked) {
+                            selectedPackages.add(app.getPackageName());
+                        } else {
+                            selectedPackages.remove(app.getPackageName());
+                        }
+                        updateSelectionSummary(apps.size());
+                    }
+                }
+            });
+
+            holder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (isCleaningInProgress || !isSelectable) return;
+                    if (app.isProtected()) {
+                        Toast.makeText(AppSelectionActivity.this, app.getStatusDetail(), Toast.LENGTH_SHORT).show();
+                    } else {
+                        holder.cbSelect.setChecked(!holder.cbSelect.isChecked());
+                    }
+                }
+            });
+        }
+
+        @Override
+        public int getItemCount() {
+            return apps.size();
+        }
+
+        class ViewHolder extends RecyclerView.ViewHolder {
+            CheckBox cbSelect;
+            ImageView ivIcon;
+            TextView tvLabel;
+            TextView tvPackage;
+            TextView tvClassification;
+            TextView tvDetail;
+            TextView tvStatusBadge;
+
+            ViewHolder(@NonNull View itemView) {
+                super(itemView);
+                cbSelect = itemView.findViewById(R.id.cb_app_select);
+                ivIcon = itemView.findViewById(R.id.iv_app_icon);
+                tvLabel = itemView.findViewById(R.id.tv_app_label);
+                tvPackage = itemView.findViewById(R.id.tv_app_package);
+                tvClassification = itemView.findViewById(R.id.tv_app_classification);
+                tvDetail = itemView.findViewById(R.id.tv_app_detail);
+                tvStatusBadge = itemView.findViewById(R.id.tv_app_status_badge);
             }
         }
     }

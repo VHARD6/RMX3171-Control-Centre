@@ -11,16 +11,16 @@
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingStart="24dp"
-        android:paddingTop="36dp"
-        android:paddingEnd="24dp"
+        android:paddingStart="20dp"
+        android:paddingTop="32dp"
+        android:paddingEnd="20dp"
         android:paddingBottom="36dp">
 
         <!-- App Icon -->
         <ImageView
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginBottom="16dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_marginBottom="12dp"
             android:contentDescription="@string/app_name"
             android:src="@drawable/ic_broom" />
 
@@ -38,556 +38,296 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:layout_marginBottom="24dp"
-            android:text="@string/header_subtitle"
+            android:layout_marginBottom="20dp"
+            android:text="Dual-Tier System &amp; App Cache Cleaner"
             android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
+            android:textSize="13sp" />
 
-        <!-- Main Cleaning Card -->
+        <!-- ================================================================= -->
+        <!-- TIER 1: QUICK CLEAN ALL (Shizuku System Trim)                     -->
+        <!-- ================================================================= -->
         <LinearLayout
+            android:id="@+id/ll_quick_clean_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/card_background"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="18dp">
 
             <!-- Card Header / Badge -->
             <TextView
-                android:id="@+id/tv_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.08"
-                android:text="@string/card_badge_ready"
+                android:text="@string/tier1_badge"
                 android:textColor="@color/accent_badge"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
-            <!-- Explanation -->
             <TextView
-                android:id="@+id/tv_explanation"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:lineSpacingExtra="4dp"
-                android:text="@string/card_explanation_ready"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <!-- Detail Note -->
-            <TextView
-                android:id="@+id/tv_detail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp"
-                android:lineSpacingExtra="3dp"
-                android:text="@string/card_detail_ready"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
-
-            <!-- Scope Information Summary Box -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:background="@color/bg_main"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/scope_standard_label"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="@string/scope_standard_val"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/scope_deep_label"
-                        android:textColor="@color/accent_badge"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="@string/scope_deep_val"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/scope_sd_label"
-                        android:textColor="@color/text_muted"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="@string/scope_sd_val"
-                        android:textColor="@color/text_muted"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- Scope Selector (User Apps vs User + System Apps) -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="@string/scope_title"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
+                android:text="@string/tier1_title"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <RadioGroup
-                android:id="@+id/rg_scope"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:orientation="horizontal">
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="14dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/tier1_desc"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
 
-                <RadioButton
-                    android:id="@+id/rb_scope_user"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/scope_user_apps"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
-
-                <RadioButton
-                    android:id="@+id/rb_scope_all"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:text="@string/scope_all_apps"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
-
-            </RadioGroup>
-
-            <!-- Storage Stats Result Container (Shown after cleanup) -->
+            <!-- Shizuku Status Row -->
             <LinearLayout
-                android:id="@+id/ll_storage_stats"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="20dp"
+                android:layout_marginBottom="14dp"
                 android:background="@color/bg_main"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:visibility="gone">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
 
                 <TextView
-                    android:id="@+id/tv_status_title"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:letterSpacing="0.06"
-                    android:textColor="@color/accent_badge"
-                    android:textSize="13sp"
+                    android:layout_weight="1"
+                    android:text="Shizuku Privilege Bridge:"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tv_storage_before"
+                    android:id="@+id/tv_quick_shizuku_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.06"
+                    android:text="CHECKING..."
+                    android:textColor="@color/accent_badge"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_quick_shizuku_action"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/btn_secondary_background"
+                android:elevation="0dp"
+                android:stateListAnimator="@null"
+                android:text="Setup / Authorize Shizuku"
+                android:textAllCaps="false"
+                android:textColor="@color/accent_badge"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <!-- Primary Quick Clean Button -->
+            <Button
+                android:id="@+id/btn_quick_clean_all"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/btn_primary_background"
+                android:elevation="0dp"
+                android:letterSpacing="0.04"
+                android:stateListAnimator="@null"
+                android:text="@string/btn_quick_clean_all"
+                android:textAllCaps="false"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <!-- Quick Clean Result Container (Shown after execution) -->
+            <LinearLayout
+                android:id="@+id/ll_quick_clean_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@color/bg_main"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tv_quick_clean_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.06"
+                    android:text="QUICK CLEAN COMPLETED"
+                    android:textColor="@color/accent_badge"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_quick_storage_before"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
 
                 <TextView
-                    android:id="@+id/tv_storage_after"
+                    android:id="@+id/tv_quick_storage_after"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
 
                 <TextView
-                    android:id="@+id/tv_storage_freed"
+                    android:id="@+id/tv_quick_storage_reclaimed"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
+                    android:layout_marginTop="4dp"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
-                <!-- Deep Clean Details (Shown if deep clean was executed) -->
-                <LinearLayout
-                    android:id="@+id/ll_deep_clean_stats"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="vertical"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/tv_deep_counts"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:lineSpacingExtra="2dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/tv_deep_scope"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:textColor="@color/accent_badge"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/deep_clean_note"
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp" />
-
-                </LinearLayout>
-
-                <!-- Divider -->
-                <View
-                    android:id="@+id/v_summary_divider"
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="10dp"
-                    android:background="@color/border_card" />
-
-                <!-- Scope Breakdown -->
-                <LinearLayout
-                    android:id="@+id/ll_scope_breakdown"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/summary_internal_label"
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/tv_summary_internal_val"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:text="@string/summary_internal_val"
-                        android:textColor="@color/accent_badge"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/summary_private_label"
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/tv_summary_private_val"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:text="@string/summary_private_val_unaccessible"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/summary_sd_label"
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:text="@string/summary_sd_val"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                </LinearLayout>
-
                 <TextView
+                    android:id="@+id/tv_quick_duration"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/storage_note"
+                    android:layout_marginTop="3dp"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@color/border_card" />
+
+                <TextView
+                    android:id="@+id/tv_quick_scope_note"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Trimmed quota-managed Android system and download caches. Individual private app caches are unaffected and require Tier 2 Deep Clean."
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp" />
+
             </LinearLayout>
 
-            <!-- Combined Full Clean Action (Standard + Deep Clean) -->
-            <Button
-                android:id="@+id/btn_full_clean"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/btn_primary_background"
-                android:elevation="0dp"
-                android:letterSpacing="0.04"
-                android:stateListAnimator="@null"
-                android:text="@string/btn_full_clean"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
-            <!-- Deep Clean Only Action -->
-            <Button
-                android:id="@+id/btn_deep_clean"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/btn_secondary_background"
-                android:elevation="0dp"
-                android:letterSpacing="0.04"
-                android:stateListAnimator="@null"
-                android:text="@string/btn_deep_clean"
-                android:textAllCaps="false"
-                android:textColor="@color/accent_badge"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
-            <!-- Primary Standard Action Button -->
-            <Button
-                android:id="@+id/btn_primary_action"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:background="@drawable/btn_primary_background"
-                android:elevation="0dp"
-                android:letterSpacing="0.04"
-                android:stateListAnimator="@null"
-                android:text="@string/btn_clean_cache"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
         </LinearLayout>
 
-        <!-- Shizuku Privilege Status Card -->
+        <!-- ================================================================= -->
+        <!-- TIER 2: DEEP CLEAN APPS (Targeted Accessibility Cleaner)          -->
+        <!-- ================================================================= -->
         <LinearLayout
-            android:id="@+id/ll_shizuku_card"
+            android:id="@+id/ll_tier2_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/card_background"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="18dp">
 
             <TextView
-                android:id="@+id/tv_shizuku_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.08"
-                android:text="@string/shizuku_badge_uninstalled"
+                android:text="@string/tier2_badge"
                 android:textColor="@color/accent_badge"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_shizuku_desc"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:layout_marginBottom="12dp"
-                android:text="@string/shizuku_desc_uninstalled"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
-
-            <Button
-                android:id="@+id/btn_shizuku_action"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:background="@drawable/btn_secondary_background"
-                android:elevation="0dp"
-                android:letterSpacing="0.04"
-                android:stateListAnimator="@null"
-                android:text="@string/shizuku_btn_install"
-                android:textAllCaps="false"
-                android:textColor="@color/accent_badge"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-
-        <!-- Secondary Action: App Info -->
-        <Button
-            android:id="@+id/btn_app_info"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/btn_secondary_background"
-            android:elevation="0dp"
-            android:letterSpacing="0.04"
-            android:stateListAnimator="@null"
-            android:text="@string/btn_app_info"
-            android:textAllCaps="false"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <!-- Diagnostic Probe Card (Phase 4) -->
-        <LinearLayout
-            android:id="@+id/ll_probe_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/card_background"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:id="@+id/tv_probe_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:letterSpacing="0.08"
-                android:text="@string/probe_card_badge"
-                android:textColor="@color/accent_badge"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tv_probe_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/probe_status_inactive"
+                android:text="@string/tier2_title"
                 android:textColor="@color/text_primary"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_probe_instructions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:layout_marginBottom="12dp"
-                android:lineSpacingExtra="2dp"
-                android:text="@string/probe_instructions"
+                android:layout_marginBottom="14dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/tier2_desc"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
-            <Button
-                android:id="@+id/btn_open_a11y_settings"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/btn_secondary_background"
-                android:elevation="0dp"
-                android:letterSpacing="0.04"
-                android:stateListAnimator="@null"
-                android:text="@string/btn_open_a11y_settings"
-                android:textAllCaps="false"
-                android:textColor="@color/accent_badge"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btn_probe_instagram"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:background="@drawable/btn_secondary_background"
-                android:elevation="0dp"
-                android:letterSpacing="0.04"
-                android:stateListAnimator="@null"
-                android:text="@string/btn_probe_instagram"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-
-        <!-- Multi-App Cache Cleaner Card (Phase 5) -->
-        <LinearLayout
-            android:id="@+id/ll_multiapp_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/card_background"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:letterSpacing="0.08"
-                android:text="MULTI-APP CLEANER (PHASE 5)"
-                android:textColor="@color/accent_badge"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
+            <!-- Accessibility Status Row -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp"
+                android:background="@color/bg_main"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Accessibility Probe Service:"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_tier2_a11y_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.06"
+                    android:text="ACTIVE"
+                    android:textColor="@color/accent_badge"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_tier2_open_a11y"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
                 android:layout_marginBottom="12dp"
-                android:lineSpacingExtra="2dp"
-                android:text="Select and sequentially clean private cache for multiple supported third-party applications with single upfront confirmation."
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:background="@drawable/btn_secondary_background"
+                android:elevation="0dp"
+                android:stateListAnimator="@null"
+                android:text="Enable in Accessibility Settings"
+                android:textAllCaps="false"
+                android:textColor="@color/accent_badge"
+                android:textSize="12sp"
+                android:visibility="gone" />
 
+            <!-- Open Multi-App Cleaner Button -->
             <Button
                 android:id="@+id/btn_open_multiapp_cleaner"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="50dp"
                 android:background="@drawable/btn_primary_background"
                 android:elevation="0dp"
                 android:letterSpacing="0.04"
                 android:stateListAnimator="@null"
-                android:text="OPEN MULTI-APP CLEANER"
+                android:text="@string/btn_open_app_cleaner"
                 android:textAllCaps="false"
                 android:textColor="@color/text_primary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
         </LinearLayout>
 
-        <!-- Single-App Pilot Card (Phase 4.2) -->
+        <!-- ================================================================= -->
+        <!-- ADVANCED DIAGNOSTICS & SINGLE-APP PILOT (Collapsed / Advanced)    -->
+        <!-- ================================================================= -->
         <LinearLayout
             android:id="@+id/ll_pilot_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/card_background"
             android:orientation="vertical"
             android:padding="16dp">
@@ -596,7 +336,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.08"
-                android:text="@string/pilot_card_badge"
+                android:text="DIAGNOSTIC TEST — SINGLE-APP PILOT"
                 android:textColor="@color/accent_badge"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -604,26 +344,24 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:layout_marginBottom="12dp"
-                android:lineSpacingExtra="2dp"
-                android:text="@string/pilot_desc"
+                android:text="Runs an isolated test of guarded cache cleaning on Instagram only to verify Settings UI automation."
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
-            <!-- Pilot Action Button -->
             <Button
                 android:id="@+id/btn_test_pilot_instagram"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:background="@drawable/btn_primary_background"
+                android:layout_height="44dp"
+                android:background="@drawable/btn_secondary_background"
                 android:elevation="0dp"
                 android:letterSpacing="0.04"
                 android:stateListAnimator="@null"
                 android:text="@string/pilot_btn_title"
                 android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp"
+                android:textColor="@color/accent_badge"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <!-- Pilot Outcome Container -->
@@ -668,13 +406,27 @@
 
         </LinearLayout>
 
+        <!-- Secondary Action: App Info -->
+        <Button
+            android:id="@+id/btn_app_info"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/btn_secondary_background"
+            android:elevation="0dp"
+            android:stateListAnimator="@null"
+            android:text="@string/btn_app_info"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+
         <!-- Footer Note -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="12dp"
             android:gravity="center"
-            android:text="@string/footer_note"
+            android:text="Dual-tier cleaner • Safe Android 11 / ColorOS 11 cache operations"
             android:textColor="@color/text_muted"
             android:textSize="11sp" />
 

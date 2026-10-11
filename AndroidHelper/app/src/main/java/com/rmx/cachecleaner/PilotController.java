@@ -331,9 +331,16 @@ public class PilotController {
                 else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
                 else if (app.getStatus() == TargetApp.Status.SKIPPED) skipped++;
             }
-            String summary = String.format(Locale.US,
-                    "Batch complete: %d cleared, %d already clean, %d failed, %d skipped",
-                    cleared, alreadyClean, failed, skipped);
+            String summary;
+            if (failed > 0) {
+                summary = String.format(Locale.US,
+                        "Batch finished with partial issues:\n%d cleared, %d already clean, %d failed, %d skipped.",
+                        cleared, alreadyClean, failed, skipped);
+            } else {
+                summary = String.format(Locale.US,
+                        "Batch completed successfully!\n%d cleared, %d already clean (%d total processed).",
+                        cleared, alreadyClean, batchQueue.size());
+            }
             log(summary);
 
             // Bring AppSelectionActivity back to front
@@ -396,22 +403,52 @@ public class PilotController {
      */
     public synchronized void cancelBatch(String reason) {
         if (!isBatchMode || currentState == State.IDLE || currentState == State.DONE) return;
+        log("cancelBatch requested: " + reason);
         cancelAllCallbacks();
         activeSessionToken++;
 
         if (batchIndex < batchQueue.size()) {
-            TargetApp app = batchQueue.get(batchIndex);
-            app.setStatus(TargetApp.Status.SKIPPED);
-            app.setStatusDetail("Cancelled: " + reason);
+            TargetApp activeApp = batchQueue.get(batchIndex);
+            activeApp.setStatus(TargetApp.Status.CANCELLED);
+            activeApp.setStatusDetail("Cancelled: " + reason);
+            if (batchListener != null) {
+                batchListener.onAppFinished(activeApp, Outcome.CANCELLED);
+            }
         }
         for (int i = batchIndex + 1; i < batchQueue.size(); i++) {
             TargetApp app = batchQueue.get(i);
-            app.setStatus(TargetApp.Status.SKIPPED);
-            app.setStatusDetail("Cancelled");
+            app.setStatus(TargetApp.Status.CANCELLED);
+            app.setStatusDetail("Cancelled before start");
         }
+
+        int cleared = 0, alreadyClean = 0, failed = 0, cancelled = 0;
+        for (TargetApp app : batchQueue) {
+            if (app.getStatus() == TargetApp.Status.CLEARED) cleared++;
+            else if (app.getStatus() == TargetApp.Status.ALREADY_CLEAN) alreadyClean++;
+            else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
+            else if (app.getStatus() == TargetApp.Status.CANCELLED || app.getStatus() == TargetApp.Status.SKIPPED) cancelled++;
+        }
+
+        String summary = String.format(Locale.US,
+                "Batch cancelled by user.\nResults before cancel: %d cleared, %d already clean, %d failed, %d stopped/cancelled.",
+                cleared, alreadyClean, failed, cancelled);
+        log(summary);
+
         transitionTo(State.DONE, "Batch cancelled: " + reason);
+
+        // Bring AppSelectionActivity back to front
+        try {
+            if (currentContext != null) {
+                Intent returnIntent = new Intent(currentContext, AppSelectionActivity.class);
+                returnIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                currentContext.startActivity(returnIntent);
+            }
+        } catch (Exception e) {
+            log("Could not bring AppSelectionActivity to front: " + e.getMessage());
+        }
+
         if (batchListener != null) {
-            batchListener.onBatchFinished(batchQueue, "Batch cancelled: " + reason);
+            batchListener.onBatchFinished(batchQueue, summary);
         }
     }
 
@@ -475,6 +512,10 @@ public class PilotController {
      * Cancel the pilot operation at any point.
      */
     public synchronized void cancel(String reason) {
+        if (isBatchMode) {
+            cancelBatch(reason);
+            return;
+        }
         if (currentState == State.IDLE || currentState == State.DONE) return;
 
         cancelAllCallbacks();
@@ -512,6 +553,20 @@ public class PilotController {
                 app.setStatus(TargetApp.Status.SKIPPED);
                 app.setStatusDetail("Skipped due to prior failure");
             }
+
+            int cleared = 0, alreadyClean = 0, failed = 0, skipped = 0;
+            for (TargetApp app : batchQueue) {
+                if (app.getStatus() == TargetApp.Status.CLEARED) cleared++;
+                else if (app.getStatus() == TargetApp.Status.ALREADY_CLEAN) alreadyClean++;
+                else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
+                else if (app.getStatus() == TargetApp.Status.SKIPPED || app.getStatus() == TargetApp.Status.CANCELLED) skipped++;
+            }
+
+            String summary = String.format(Locale.US,
+                    "Batch stopped due to error: %s\nResults: %d cleared, %d already clean, %d failed, %d skipped.",
+                    reason, cleared, alreadyClean, failed, skipped);
+            log(summary);
+
             transitionTo(State.DONE, "Batch stopped: " + reason);
             try {
                 if (currentContext != null) {
@@ -523,7 +578,7 @@ public class PilotController {
                 log("Could not bring AppSelectionActivity to front: " + e.getMessage());
             }
             if (batchListener != null) {
-                batchListener.onBatchFinished(batchQueue, "Batch stopped: " + reason);
+                batchListener.onBatchFinished(batchQueue, summary);
             }
             return;
         }
@@ -812,7 +867,8 @@ public class PilotController {
             app.setStatus(TargetApp.Status.ALREADY_CLEAN);
             app.setCacheBefore(zeroCache);
             app.setCacheAfter(zeroCache);
-            app.setStatusDetail("Already clean (" + zeroCache + ")");
+            String time = new java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(new java.util.Date());
+            app.setStatusDetail("Already clean (" + zeroCache + ") • Verified live at " + time);
             if (batchListener != null) {
                 batchListener.onAppFinished(app, Outcome.ALREADY_CLEAN);
             }
@@ -962,15 +1018,16 @@ public class PilotController {
         if (isBatchMode && batchIndex < batchQueue.size()) {
             TargetApp app = batchQueue.get(batchIndex);
             app.setCacheAfter(currentResult.cacheAfter);
+            String time = new java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(new java.util.Date());
             if (verified) {
                 app.setStatus(TargetApp.Status.CLEARED);
-                app.setStatusDetail("Cleared: " + before + " -> " + currentResult.cacheAfter);
+                app.setStatusDetail("Cleared: " + before + " -> " + currentResult.cacheAfter + " • Verified live at " + time);
                 if (batchListener != null) {
                     batchListener.onAppFinished(app, Outcome.SETTINGS_UI_CONFIRMED);
                 }
             } else {
                 app.setStatus(TargetApp.Status.FAILED);
-                app.setStatusDetail("Unverified (After: " + currentResult.cacheAfter + ")");
+                app.setStatusDetail("Unverified (After: " + currentResult.cacheAfter + ") • " + time);
                 if (batchListener != null) {
                     batchListener.onAppFinished(app, Outcome.ACTION_ATTEMPTED_UNVERIFIED);
                 }

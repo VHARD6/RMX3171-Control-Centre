@@ -51,11 +51,21 @@
             android:textSize="11sp" />
 
         <TextView
+            android:id="@+id/tv_app_classification"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="User app"
+            android:textColor="@color/accent_badge"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <TextView
             android:id="@+id/tv_app_detail"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="Pending"
+            android:text="Cache: Measured live during cleaning"
             android:textColor="@color/text_muted"
             android:textSize="11sp" />
 

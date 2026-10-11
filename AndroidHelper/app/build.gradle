@@ -39,5 +39,6 @@ dependencies {
     implementation "dev.rikka.shizuku:api:${shizuku_version}"
     implementation "dev.rikka.shizuku:provider:${shizuku_version}"
     implementation "androidx.annotation:annotation:1.2.0"
+    implementation "androidx.recyclerview:recyclerview:1.2.1"
     testImplementation 'junit:junit:4.13.2'
 }

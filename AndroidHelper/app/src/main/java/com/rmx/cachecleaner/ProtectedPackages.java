@@ -16,10 +16,24 @@ public final class ProtectedPackages {
     static {
         Map<String, String> map = new LinkedHashMap<>();
         map.put("com.rmx.cachecleaner", "Self companion application (prevents self-invalidation during cleaning)");
-        map.put("moe.shizuku.privileged.api", "Shizuku privilege bridge (prevents closing active IPC connection)");
-        map.put("android", "Core Android OS framework (virtual package without standard user cache)");
-        map.put("com.android.systemui", "System UI (prevents notification shade / status bar / navigation reloading)");
-        map.put("com.coloros.launcher", "ColorOS Home Launcher (prevents desktop launcher redraw and icon reload)");
+        map.put("moe.shizuku.privileged.api", "Shizuku privilege bridge (prevents terminating active IPC connection)");
+        map.put("android", "Core Android OS framework");
+        map.put("oplus", "Core ColorOS/Oppo OS platform framework");
+        map.put("com.android.settings", "Core system Settings application (host for cache cleaning automation)");
+        map.put("com.android.systemui", "System UI (manages status bar, navigation bar, and lock screen)");
+        map.put("com.google.android.packageinstaller", "System package installer and uninstaller");
+        map.put("com.android.packageinstaller", "System package installer fallback");
+        map.put("com.google.android.permissioncontroller", "Android runtime permission controller");
+        map.put("com.android.phone", "Core Telephony and Radio phone service");
+        map.put("com.android.server.telecom", "Core Telecom call management framework");
+        map.put("com.android.providers.telephony", "Telephony and SMS/MMS system provider");
+        map.put("com.mediatek.telephony", "Chipset telephony provider");
+        map.put("com.google.android.inputmethod.latin", "Active input method editor (Gboard keyboard)");
+        map.put("com.google.android.marvin.talkback", "Active accessibility infrastructure (TalkBack)");
+        map.put("com.android.providers.settings", "System settings database provider");
+        map.put("com.coloros.wirelesssettings", "ColorOS wireless and network settings service");
+        map.put("com.coloros.simsettings", "ColorOS SIM card management service");
+        map.put("com.coloros.launcher", "ColorOS Home Launcher (desktop launcher interface)");
         EXCLUSIONS = Collections.unmodifiableMap(map);
     }
 

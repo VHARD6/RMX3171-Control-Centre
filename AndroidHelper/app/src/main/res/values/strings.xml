@@ -122,4 +122,16 @@
     <string name="pilot_dialog_title">Confirm Cache Deletion</string>
     <string name="pilot_status_running">Pilot test in progress…</string>
     <string name="pilot_outcome_title">PILOT OUTCOME</string>
+
+    <!-- Phase 7: Dual-Tier Cache Cleaning UX -->
+    <string name="tier1_badge">TIER 1 • QUICK CLEAN (SHIZUKU)</string>
+    <string name="tier1_title">One-Tap System Cache Trim</string>
+    <string name="tier1_desc">Executes Android\'s system cache-trimming command (pm trim-caches 100G) via Shizuku shell. Immediately purges quota-managed system, media, and download caches without UI navigation.</string>
+    <string name="btn_quick_clean_all">QUICK CLEAN ALL</string>
+    <string name="quick_clean_dialog_title">Run System-Wide Quick Clean?</string>
+    <string name="quick_clean_dialog_msg">This executes Android\'s system cache-trimming command (pm trim-caches 100G) via Shizuku shell.\n\nScope &amp; Guarantees:\n• Purges quota-managed system and download caches down to the system floor.\n• Runs instantly in the background without UI navigation.\n• Free storage measured before and after via StatFs.\n• User accounts, logins, photos, and databases are strictly protected.\n\nNote: This trims system quota caches. To clean individual third-party private app caches, use Tier 2 Deep Clean below.\n\nProceed?</string>
+    <string name="tier2_badge">TIER 2 • DEEP CLEAN (ACCESSIBILITY)</string>
+    <string name="tier2_title">Guarded Multi-App Cache Cleaner</string>
+    <string name="tier2_desc">Discovers all installed third-party apps on this phone. Cleans private internal app caches (/data/user/0/.../cache) sequentially using guarded Settings automation with dual identity verification.</string>
+    <string name="btn_open_app_cleaner">OPEN APP CLEANER (ALL APPS)</string>
 </resources>

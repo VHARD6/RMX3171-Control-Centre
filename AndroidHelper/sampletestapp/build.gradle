@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.dynamic.sampletestapp'
+    compileSdk 30
+
+    defaultConfig {
+        applicationId "com.dynamic.sampletestapp"
+        minSdk 24
+        targetSdk 30
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ""
+        }
+    }
+}
