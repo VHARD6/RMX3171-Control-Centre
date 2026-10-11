@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_main"
+    android:orientation="vertical">
+
+    <!-- Top Action Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@android:string/cancel"
+            android:src="@android:drawable/ic_menu_revert"
+            android:tint="@color/text_primary" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Multi-App Cache Cleaner"
+                android:textColor="@color/text_primary"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Phase 5 • Guarded Batch Cleaning"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Scrollable Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="24dp">
+
+            <!-- Safety Banner -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/card_background"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="SAFEGUARDED WORKFLOW"
+                    android:textColor="@color/accent_badge"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Select supported apps to clear private cache sequentially. A single confirmation authorizes the batch. Each app undergoes dual identity verification before clearing. Personal app data is strictly protected."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+            <!-- Selection Control Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tv_selection_count"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Supported Applications (0)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btn_toggle_select_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:background="@drawable/btn_secondary_background"
+                    android:elevation="0dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:stateListAnimator="@null"
+                    android:text="Select All"
+                    android:textAllCaps="false"
+                    android:textColor="@color/accent_badge"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+            <!-- Target Apps List Container -->
+            <LinearLayout
+                android:id="@+id/ll_target_apps_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <!-- Empty State Notice -->
+            <TextView
+                android:id="@+id/tv_empty_notice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:gravity="center"
+                android:text="No supported allowlisted third-party applications were found installed on this device."
+                android:textColor="@color/text_muted"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <!-- Batch Progress Card -->
+            <LinearLayout
+                android:id="@+id/ll_batch_progress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/card_background"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tv_batch_progress_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="BATCH IN PROGRESS"
+                    android:textColor="@color/accent_badge"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_batch_progress_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Processing 1 of 2: Instagram..."
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <ProgressBar
+                    android:id="@+id/pb_batch_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_marginTop="10dp"
+                    android:indeterminate="true" />
+
+            </LinearLayout>
+
+            <!-- Batch Summary Card -->
+            <LinearLayout
+                android:id="@+id/ll_batch_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/card_background"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="BATCH RESULTS SUMMARY"
+                    android:textColor="@color/accent_badge"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_batch_summary_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <!-- Bottom Action Panel -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/card_background"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/btn_clean_selected"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/btn_primary_background"
+            android:elevation="0dp"
+            android:letterSpacing="0.04"
+            android:stateListAnimator="@null"
+            android:text="CLEAN SELECTED APPS"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_cancel_batch"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/btn_secondary_background"
+            android:elevation="0dp"
+            android:letterSpacing="0.04"
+            android:stateListAnimator="@null"
+            android:text="CANCEL BATCH"
+            android:textAllCaps="false"
+            android:textColor="@android:color/holo_red_light"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</LinearLayout>

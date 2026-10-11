@@ -40,6 +40,13 @@
             android:noHistory="true"
             android:label="@string/pilot_dialog_title" />
 
+        <!-- Phase 5: Multi-App Selection Activity -->
+        <activity
+            android:name=".AppSelectionActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:label="Multi-App Cache Cleaner" />
+
         <!-- Shizuku IPC Provider -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

@@ -76,6 +76,12 @@ public class PilotController {
         void onPilotFinished(PilotResult result);
     }
 
+    public interface BatchListener {
+        void onBatchProgress(int currentIndex, int total, TargetApp currentApp);
+        void onAppFinished(TargetApp app, Outcome outcome);
+        void onBatchFinished(List<TargetApp> batchResults, String summary);
+    }
+
     private static final PilotController INSTANCE = new PilotController();
     public static PilotController getInstance() {
         return INSTANCE;
@@ -122,9 +128,17 @@ public class PilotController {
     private int activeSessionToken = 0;
 
     // Target Identity Tracking
+    private String currentTargetPackage = TARGET_PACKAGE;
     private String targetAppLabel = "Instagram";
     private boolean isAppInfoIdentityVerified = false;
     private boolean isStorageUsageIdentityVerified = false;
+
+    // Phase 5: Multi-App Batch State
+    private boolean isBatchMode = false;
+    private List<TargetApp> batchQueue = new ArrayList<>();
+    private int batchIndex = 0;
+    private BatchListener batchListener = null;
+    private Context currentContext = null;
 
     // Explicit runnable handles for reliable cancellation
     private Runnable timeoutRunnable = null;
@@ -182,7 +196,7 @@ public class PilotController {
      * Resolve target application label from PackageManager metadata.
      */
     public static String resolveTargetAppLabel(Context context, String packageName) {
-        if (context != null) {
+        if (context != null && packageName != null) {
             try {
                 PackageManager pm = context.getPackageManager();
                 ApplicationInfo appInfo = pm.getApplicationInfo(packageName, 0);
@@ -194,7 +208,8 @@ public class PilotController {
                 Log.w(TAG, "Failed resolving target label for " + packageName + ": " + e.getMessage());
             }
         }
-        return "Instagram";
+        String defaultLabel = SupportedAppsRegistry.getDefaultLabel(packageName);
+        return defaultLabel != null ? defaultLabel : "Target";
     }
 
     /**
@@ -216,10 +231,17 @@ public class PilotController {
         activeSessionToken++;
         final int sessionToken = activeSessionToken;
 
+        isBatchMode = false;
+        batchQueue.clear();
+        batchIndex = 0;
+        batchListener = null;
+        currentContext = (context != null) ? context.getApplicationContext() : null;
+
+        currentTargetPackage = TARGET_PACKAGE;
+        targetAppLabel = resolveTargetAppLabel(context, currentTargetPackage);
         isAppInfoIdentityVerified = false;
         isStorageUsageIdentityVerified = false;
-        targetAppLabel = resolveTargetAppLabel(context, TARGET_PACKAGE);
-        log("Target resolved: " + TARGET_PACKAGE + " -> '" + targetAppLabel + "' (Session " + sessionToken + ")");
+        log("Target resolved: " + currentTargetPackage + " -> '" + targetAppLabel + "' (Session " + sessionToken + ")");
 
         currentResult.outcome = Outcome.NONE;
         currentResult.cacheBefore = "Pending";
@@ -231,14 +253,165 @@ public class PilotController {
 
         try {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-            intent.setData(Uri.fromParts("package", TARGET_PACKAGE, null));
+            intent.setData(Uri.fromParts("package", currentTargetPackage, null));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
             context.startActivity(intent);
-            log("Launched ACTION_APPLICATION_DETAILS_SETTINGS for " + TARGET_PACKAGE);
+            log("Launched ACTION_APPLICATION_DETAILS_SETTINGS for " + currentTargetPackage);
             return true;
         } catch (Exception e) {
             fail("Failed to open App Info intent: " + e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Phase 5: Start multi-app batch cleaning with single upfront confirmation.
+     */
+    public synchronized boolean startBatch(Context context, List<TargetApp> targets, BatchListener listener) {
+        if (currentState != State.IDLE && currentState != State.DONE) {
+            log("Cannot start batch: cleaner already running in state " + currentState);
+            return false;
+        }
+
+        if (targets == null || targets.isEmpty()) {
+            log("Cannot start batch: target list is empty.");
+            return false;
+        }
+
+        // Validate all targets against predefined allowlist
+        for (TargetApp app : targets) {
+            if (!SupportedAppsRegistry.isPackageAllowed(app.getPackageName())) {
+                String err = "Security violation: Package '" + app.getPackageName() + "' is not in the supported allowlist.";
+                log(err);
+                if (listener != null) {
+                    listener.onBatchFinished(targets, err);
+                }
+                return false;
+            }
+        }
+
+        if (!SettingsInspectionAccessibilityService.isServiceRunning()) {
+            String err = "Accessibility Service is not enabled. Please enable it in Settings first.";
+            log(err);
+            if (listener != null) {
+                listener.onBatchFinished(targets, err);
+            }
+            return false;
+        }
+
+        cancelAllCallbacks();
+        activeSessionToken++;
+
+        isBatchMode = true;
+        batchQueue = new ArrayList<>(targets);
+        for (TargetApp app : batchQueue) {
+            app.resetForBatch();
+        }
+        batchIndex = 0;
+        batchListener = listener;
+        currentContext = (context != null) ? context.getApplicationContext() : null;
+
+        log("Starting batch of " + batchQueue.size() + " targets.");
+        processNextBatchItem();
+        return true;
+    }
+
+    /**
+     * Sequential execution: process the next application in the batch queue.
+     */
+    private synchronized void processNextBatchItem() {
+        if (batchIndex >= batchQueue.size()) {
+            // Batch finished!
+            transitionTo(State.DONE, "Batch cleaning completed.");
+            int cleared = 0, alreadyClean = 0, failed = 0, skipped = 0;
+            for (TargetApp app : batchQueue) {
+                if (app.getStatus() == TargetApp.Status.CLEARED) cleared++;
+                else if (app.getStatus() == TargetApp.Status.ALREADY_CLEAN) alreadyClean++;
+                else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
+                else if (app.getStatus() == TargetApp.Status.SKIPPED) skipped++;
+            }
+            String summary = String.format(Locale.US,
+                    "Batch complete: %d cleared, %d already clean, %d failed, %d skipped",
+                    cleared, alreadyClean, failed, skipped);
+            log(summary);
+
+            // Bring AppSelectionActivity back to front
+            try {
+                if (currentContext != null) {
+                    Intent returnIntent = new Intent(currentContext, AppSelectionActivity.class);
+                    returnIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    currentContext.startActivity(returnIntent);
+                }
+            } catch (Exception e) {
+                log("Could not bring AppSelectionActivity to front: " + e.getMessage());
+            }
+
+            if (batchListener != null) {
+                batchListener.onBatchFinished(batchQueue, summary);
+            }
+            return;
+        }
+
+        TargetApp app = batchQueue.get(batchIndex);
+        app.setStatus(TargetApp.Status.CLEANING);
+        app.setStatusDetail("Starting navigation...");
+        if (batchListener != null) {
+            batchListener.onBatchProgress(batchIndex, batchQueue.size(), app);
+        }
+
+        cancelAllCallbacks();
+        activeSessionToken++;
+        final int sessionToken = activeSessionToken;
+
+        currentTargetPackage = app.getPackageName();
+        targetAppLabel = app.getResolvedLabel();
+        isAppInfoIdentityVerified = false;
+        isStorageUsageIdentityVerified = false;
+
+        currentResult.outcome = Outcome.NONE;
+        currentResult.cacheBefore = "Pending";
+        currentResult.cacheAfter = "Pending";
+        currentResult.summaryMessage = "Processing " + targetAppLabel + " (" + (batchIndex + 1) + "/" + batchQueue.size() + ")";
+
+        log("Batch [" + (batchIndex + 1) + "/" + batchQueue.size() + "] Target resolved: " + currentTargetPackage + " -> '" + targetAppLabel + "' (Session " + sessionToken + ")");
+        transitionTo(State.NAVIGATING_TO_STORAGE, "Opening " + targetAppLabel + " App Info...");
+
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.fromParts("package", currentTargetPackage, null));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            if (currentContext != null) {
+                currentContext.startActivity(intent);
+            }
+            log("Launched ACTION_APPLICATION_DETAILS_SETTINGS for " + currentTargetPackage);
+        } catch (Exception e) {
+            fail("Failed to open App Info for " + targetAppLabel + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Cancel an active batch operation safely.
+     */
+    public synchronized void cancelBatch(String reason) {
+        if (!isBatchMode || currentState == State.IDLE || currentState == State.DONE) return;
+        cancelAllCallbacks();
+        activeSessionToken++;
+
+        if (batchIndex < batchQueue.size()) {
+            TargetApp app = batchQueue.get(batchIndex);
+            app.setStatus(TargetApp.Status.SKIPPED);
+            app.setStatusDetail("Cancelled: " + reason);
+        }
+        for (int i = batchIndex + 1; i < batchQueue.size(); i++) {
+            TargetApp app = batchQueue.get(i);
+            app.setStatus(TargetApp.Status.SKIPPED);
+            app.setStatusDetail("Cancelled");
+        }
+        transitionTo(State.DONE, "Batch cancelled: " + reason);
+        if (batchListener != null) {
+            batchListener.onBatchFinished(batchQueue, "Batch cancelled: " + reason);
         }
     }
 
@@ -258,7 +431,7 @@ public class PilotController {
         if (svc != null) {
             try {
                 Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                intent.setData(Uri.fromParts("package", TARGET_PACKAGE, null));
+                intent.setData(Uri.fromParts("package", currentTargetPackage, null));
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 svc.startActivity(intent);
             } catch (Exception e) {
@@ -324,6 +497,37 @@ public class PilotController {
         currentResult.outcome = Outcome.FAILED;
         currentResult.summaryMessage = "Pilot failed: " + reason;
         log("FAILED: " + reason);
+
+        if (isBatchMode) {
+            if (batchIndex < batchQueue.size()) {
+                TargetApp app = batchQueue.get(batchIndex);
+                app.setStatus(TargetApp.Status.FAILED);
+                app.setStatusDetail("Failed: " + reason);
+                if (batchListener != null) {
+                    batchListener.onAppFinished(app, Outcome.FAILED);
+                }
+            }
+            for (int i = batchIndex + 1; i < batchQueue.size(); i++) {
+                TargetApp app = batchQueue.get(i);
+                app.setStatus(TargetApp.Status.SKIPPED);
+                app.setStatusDetail("Skipped due to prior failure");
+            }
+            transitionTo(State.DONE, "Batch stopped: " + reason);
+            try {
+                if (currentContext != null) {
+                    Intent returnIntent = new Intent(currentContext, AppSelectionActivity.class);
+                    returnIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    currentContext.startActivity(returnIntent);
+                }
+            } catch (Exception e) {
+                log("Could not bring AppSelectionActivity to front: " + e.getMessage());
+            }
+            if (batchListener != null) {
+                batchListener.onBatchFinished(batchQueue, "Batch stopped: " + reason);
+            }
+            return;
+        }
+
         transitionTo(State.DONE, currentResult.summaryMessage);
         notifyFinished();
     }
@@ -555,6 +759,13 @@ public class PilotController {
             case PROCEED_TO_CONFIRMATION:
                 currentResult.cacheBefore = observedCache;
                 log("Observed " + targetAppLabel + " Cache: " + observedCache);
+                if (isBatchMode && batchIndex < batchQueue.size()) {
+                    TargetApp app = batchQueue.get(batchIndex);
+                    app.setCacheBefore(observedCache);
+                    transitionTo(State.EXECUTING_CLEAR_CACHE, "Batch authorized. Clearing cache for " + targetAppLabel + "...");
+                    scheduleClickExecution(sessionToken, 200);
+                    return true;
+                }
                 break;
             case ABORT_DISABLED_WITH_POSITIVE_CACHE:
                 fail("Safety abort: 'Clear cache' button is disabled, but observed cache reading is positive or unavailable: " + observedCache);
@@ -574,7 +785,7 @@ public class PilotController {
         transitionTo(State.AWAITING_FINAL_CONFIRMATION, "Presenting final confirmation dialog to user.");
 
         Intent dialogIntent = new Intent(service, PilotConfirmationDialogActivity.class);
-        dialogIntent.putExtra("target_package", TARGET_PACKAGE);
+        dialogIntent.putExtra("target_package", currentTargetPackage);
         dialogIntent.putExtra("target_label", targetAppLabel);
         dialogIntent.putExtra("cache_before", observedCache);
         dialogIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -595,6 +806,26 @@ public class PilotController {
                 "ALREADY_CLEAN: %s private cache is already %s. 'Clear cache' control is disabled as expected.",
                 targetAppLabel, zeroCache);
         log(currentResult.summaryMessage);
+
+        if (isBatchMode && batchIndex < batchQueue.size()) {
+            TargetApp app = batchQueue.get(batchIndex);
+            app.setStatus(TargetApp.Status.ALREADY_CLEAN);
+            app.setCacheBefore(zeroCache);
+            app.setCacheAfter(zeroCache);
+            app.setStatusDetail("Already clean (" + zeroCache + ")");
+            if (batchListener != null) {
+                batchListener.onAppFinished(app, Outcome.ALREADY_CLEAN);
+            }
+            batchIndex++;
+            postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    processNextBatchItem();
+                }
+            }, 600);
+            return;
+        }
+
         transitionTo(State.DONE, currentResult.summaryMessage);
 
         try {
@@ -726,6 +957,32 @@ public class PilotController {
                     "ACTION_ATTEMPTED_UNVERIFIED: Click executed, but Settings UI cache readout could not be confirmed (Before: %s, After: %s).",
                     before, currentResult.cacheAfter);
             log(currentResult.summaryMessage);
+        }
+
+        if (isBatchMode && batchIndex < batchQueue.size()) {
+            TargetApp app = batchQueue.get(batchIndex);
+            app.setCacheAfter(currentResult.cacheAfter);
+            if (verified) {
+                app.setStatus(TargetApp.Status.CLEARED);
+                app.setStatusDetail("Cleared: " + before + " -> " + currentResult.cacheAfter);
+                if (batchListener != null) {
+                    batchListener.onAppFinished(app, Outcome.SETTINGS_UI_CONFIRMED);
+                }
+            } else {
+                app.setStatus(TargetApp.Status.FAILED);
+                app.setStatusDetail("Unverified (After: " + currentResult.cacheAfter + ")");
+                if (batchListener != null) {
+                    batchListener.onAppFinished(app, Outcome.ACTION_ATTEMPTED_UNVERIFIED);
+                }
+            }
+            batchIndex++;
+            postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    processNextBatchItem();
+                }
+            }, 800);
+            return;
         }
 
         transitionTo(State.DONE, currentResult.summaryMessage);

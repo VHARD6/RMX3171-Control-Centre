@@ -537,6 +537,51 @@
 
         </LinearLayout>
 
+        <!-- Multi-App Cache Cleaner Card (Phase 5) -->
+        <LinearLayout
+            android:id="@+id/ll_multiapp_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.08"
+                android:text="MULTI-APP CLEANER (PHASE 5)"
+                android:textColor="@color/accent_badge"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                android:lineSpacingExtra="2dp"
+                android:text="Select and sequentially clean private cache for multiple supported third-party applications with single upfront confirmation."
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_open_multiapp_cleaner"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/btn_primary_background"
+                android:elevation="0dp"
+                android:letterSpacing="0.04"
+                android:stateListAnimator="@null"
+                android:text="OPEN MULTI-APP CLEANER"
+                android:textAllCaps="false"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
         <!-- Single-App Pilot Card (Phase 4.2) -->
         <LinearLayout
             android:id="@+id/ll_pilot_card"

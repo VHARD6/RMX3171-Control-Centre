@@ -213,6 +213,18 @@ public class MainActivity extends Activity {
         tvPilotOutcomeTitle = findViewById(R.id.tv_pilot_outcome_title);
         tvPilotOutcomeSummary = findViewById(R.id.tv_pilot_outcome_summary);
         tvPilotCacheDetails = findViewById(R.id.tv_pilot_cache_details);
+
+        // Phase 5 Multi-App Cleaner View
+        Button btnOpenMultiApp = findViewById(R.id.btn_open_multiapp_cleaner);
+        if (btnOpenMultiApp != null) {
+            btnOpenMultiApp.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(MainActivity.this, AppSelectionActivity.class);
+                    startActivity(intent);
+                }
+            });
+        }
     }
 
     private void setupListeners() {
