@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -719,6 +720,305 @@ public class MultiAppSafetyTest {
         assertEquals("Removing unselected app must not deselect any other app", 205, selectedPackages.size());
         assertFalse("Explicitly unselected app must remain unselected", selectedPackages.contains("com.app.selectable.5"));
         assertTrue("Remaining selected app must remain selected", selectedPackages.contains("com.app.selectable.0"));
+    }
+
+    // =========================================================================
+    // Multi-App Selection Stability & Recycling Regression Tests
+    // =========================================================================
+
+    /**
+     * Simulated ViewHolder representing the CheckBox and Row View contract in TargetAppAdapter.
+     */
+    static class SimulatedViewHolder {
+        String boundPackage;
+        boolean isChecked;
+        boolean isEnabled;
+        Runnable userClickListener;
+
+        void bindFixed(TargetApp app, AppSelectionManager selectionManager) {
+            // Contract step 1: Detach all listeners FIRST
+            this.userClickListener = null;
+
+            // Contract step 2: Query authoritative source of truth
+            String pkg = app.getPackageName();
+            boolean isProtected = app.isProtected();
+            boolean selected = selectionManager.isSelected(pkg, isProtected);
+
+            // Contract step 3: Sync model
+            app.setSelected(selected);
+
+            // Contract step 4: Set view state silently
+            this.boundPackage = pkg;
+            this.isChecked = selected;
+            this.isEnabled = !isProtected;
+
+            // Contract step 5: Attach user click handler
+            this.userClickListener = () -> {
+                if (isProtected) return;
+                boolean next = !selectionManager.isSelected(pkg, isProtected);
+                this.isChecked = next;
+                selectionManager.setSelected(pkg, next, isProtected);
+                app.setSelected(next);
+            };
+        }
+
+        void recycle() {
+            this.userClickListener = null;
+        }
+
+        void performUserClick() {
+            if (userClickListener != null) {
+                userClickListener.run();
+            }
+        }
+    }
+
+    @Test
+    public void testAdapterRecycling_neverMutatesSelectedPackages() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+        TargetApp appA = new TargetApp("com.app.selected.a", "App A");
+        TargetApp appB = new TargetApp("com.app.unselected.b", "App B");
+
+        selectionManager.setSelected(appA.getPackageName(), true, false);
+        selectionManager.setSelected(appB.getPackageName(), false, false);
+
+        SimulatedViewHolder holder = new SimulatedViewHolder();
+
+        // Bind App A (selected)
+        holder.bindFixed(appA, selectionManager);
+        assertTrue("Holder must be checked for App A", holder.isChecked);
+        assertTrue("App A must be selected in manager", selectionManager.isSelected(appA.getPackageName(), false));
+
+        // Recycle holder
+        holder.recycle();
+
+        // Rebind holder to App B (unselected)
+        holder.bindFixed(appB, selectionManager);
+        assertFalse("Holder must be unchecked for App B", holder.isChecked);
+        assertFalse("App B must remain unselected in manager", selectionManager.isSelected(appB.getPackageName(), false));
+
+        // CRITICAL: App A must NOT have been deselected!
+        assertTrue("App A must remain selected in manager after holder was recycled to App B",
+                selectionManager.isSelected(appA.getPackageName(), false));
+        assertTrue("App A model must remain selected", appA.isSelected());
+        assertEquals("Selection manager count must remain exactly 1", 1, selectionManager.getSelectedCount());
+    }
+
+    @Test
+    public void testRebindingUnselectedItem_withPreviouslySelectedHolder_preservesOriginalApp() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+        TargetApp appSelected = new TargetApp("com.instagram.android", "Instagram");
+        TargetApp appUnselected = new TargetApp("com.snapchat.android", "Snapchat");
+
+        selectionManager.setSelected(appSelected.getPackageName(), true, false);
+        selectionManager.setSelected(appUnselected.getPackageName(), false, false);
+
+        SimulatedViewHolder recycledHolder = new SimulatedViewHolder();
+
+        // 1. First binding: Instagram (selected)
+        recycledHolder.bindFixed(appSelected, selectionManager);
+        assertTrue(recycledHolder.isChecked);
+
+        // 2. Recycle and rebind to Snapchat (unselected)
+        recycledHolder.recycle();
+        recycledHolder.bindFixed(appUnselected, selectionManager);
+        assertFalse(recycledHolder.isChecked);
+
+        // Verify Instagram was not deselected
+        assertTrue("Original selected app must remain selected after ViewHolder reuse",
+                selectionManager.isSelected(appSelected.getPackageName(), false));
+        assertFalse("Rebound unselected app must remain unselected",
+                selectionManager.isSelected(appUnselected.getPackageName(), false));
+    }
+
+    @Test
+    public void testScrollingSimulation_206Apps_preservesAllSelections() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+
+        // Create 206 selectable apps and 95 protected apps (matching device inventory of 301 apps)
+        List<TargetApp> allApps = new ArrayList<>();
+        for (int i = 0; i < 206; i++) {
+            TargetApp app = new TargetApp("com.app.selectable." + i, "Selectable App " + i);
+            app.setProtected(false);
+            allApps.add(app);
+        }
+        for (int i = 0; i < 95; i++) {
+            TargetApp app = new TargetApp("com.android.protected." + i, "Protected Component " + i);
+            app.setProtected(true);
+            allApps.add(app);
+        }
+
+        // Initialize default selection: all 206 selectable apps start selected
+        selectionManager.initializeDefaultSelection(allApps);
+        assertEquals("Initially 206 selectable apps must be selected", 206, selectionManager.getSelectedCount());
+
+        // Pool of 10 ViewHolders to simulate RecyclerView on screen
+        SimulatedViewHolder[] viewHolderPool = new SimulatedViewHolder[10];
+        for (int i = 0; i < 10; i++) {
+            viewHolderPool[i] = new SimulatedViewHolder();
+        }
+
+        // Simulate scrolling up and down through the list 20 times (20 passes * 301 items = 6020 bindings)
+        for (int pass = 0; pass < 20; pass++) {
+            if (pass % 2 == 0) {
+                // Scroll down (0 to 300)
+                for (int index = 0; index < allApps.size(); index++) {
+                    SimulatedViewHolder holder = viewHolderPool[index % 10];
+                    holder.recycle();
+                    holder.bindFixed(allApps.get(index), selectionManager);
+                }
+            } else {
+                // Scroll up (300 to 0)
+                for (int index = allApps.size() - 1; index >= 0; index--) {
+                    SimulatedViewHolder holder = viewHolderPool[index % 10];
+                    holder.recycle();
+                    holder.bindFixed(allApps.get(index), selectionManager);
+                }
+            }
+
+            // After each pass, verify selection count NEVER changed
+            assertEquals("Selection count must remain exactly 206 after scroll pass " + pass,
+                    206, selectionManager.getSelectedCount());
+        }
+
+        // Final verification across every single app
+        for (int i = 0; i < 206; i++) {
+            assertTrue("Selectable app " + i + " must remain selected",
+                    selectionManager.isSelected("com.app.selectable." + i, false));
+        }
+        for (int i = 0; i < 95; i++) {
+            assertFalse("Protected app " + i + " must remain unselected",
+                    selectionManager.isSelected("com.android.protected." + i, true));
+        }
+    }
+
+    @Test
+    public void testFilteringAndUnfiltering_preservesAllSelections() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+        List<TargetApp> allApps = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            String name = (i < 5) ? "Google App " + i : "Other App " + i;
+            String pkg = (i < 5) ? "com.google.android.app." + i : "com.other.app." + i;
+            TargetApp app = new TargetApp(pkg, name);
+            app.setProtected(false);
+            allApps.add(app);
+        }
+
+        selectionManager.initializeDefaultSelection(allApps);
+        assertEquals("All 50 apps start selected", 50, selectionManager.getSelectedCount());
+
+        // 1. User filters list by "google" -> only 5 apps match
+        List<TargetApp> filtered = SupportedAppsRegistry.filterApps(allApps, "google");
+        assertEquals("Filter must match exactly 5 Google apps", 5, filtered.size());
+
+        // Simulate binding inside the filtered list
+        SimulatedViewHolder holder = new SimulatedViewHolder();
+        for (TargetApp app : filtered) {
+            holder.recycle();
+            holder.bindFixed(app, selectionManager);
+        }
+
+        // Selection manager must still retain all 50 selections (hidden apps are never lost)
+        assertEquals("Hidden apps must remain selected during filter", 50, selectionManager.getSelectedCount());
+
+        // 2. User un-filters (clears search query)
+        List<TargetApp> unfiltered = SupportedAppsRegistry.filterApps(allApps, "");
+        assertEquals("Unfiltered list contains all 50 apps", 50, unfiltered.size());
+
+        for (TargetApp app : unfiltered) {
+            holder.recycle();
+            holder.bindFixed(app, selectionManager);
+        }
+
+        assertEquals("Selection count must remain exactly 50 after clearing search",
+                50, selectionManager.getSelectedCount());
+    }
+
+    @Test
+    public void testFiltering_selectionShortcutsAffectOnlyFilteredApps() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+        List<TargetApp> allApps = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            String name = (i < 5) ? "Google App " + i : "Other App " + i;
+            String pkg = (i < 5) ? "com.google.android.app." + i : "com.other.app." + i;
+            TargetApp app = new TargetApp(pkg, name);
+            app.setProtected(false);
+            allApps.add(app);
+        }
+
+        selectionManager.initializeDefaultSelection(allApps);
+        assertEquals(20, selectionManager.getSelectedCount());
+
+        // User filters by "google" (5 apps)
+        List<TargetApp> googleApps = SupportedAppsRegistry.filterApps(allApps, "google");
+        assertEquals(5, googleApps.size());
+
+        // User clicks "Deselect All" on the filtered subset
+        selectionManager.deselectAll(googleApps);
+
+        // Verification: The 5 Google apps are deselected, but the other 15 apps remain selected!
+        assertEquals("15 non-matching apps must remain selected", 15, selectionManager.getSelectedCount());
+        for (TargetApp gApp : googleApps) {
+            assertFalse("Google app must be deselected", selectionManager.isSelected(gApp.getPackageName(), false));
+        }
+        for (int i = 5; i < 20; i++) {
+            assertTrue("Other app must remain selected",
+                    selectionManager.isSelected("com.other.app." + i, false));
+        }
+
+        // User clicks "Invert Selection" on the filtered subset
+        selectionManager.invertSelection(googleApps);
+        assertEquals("Inverting 5 deselected Google apps restores total to 20", 20, selectionManager.getSelectedCount());
+    }
+
+    @Test
+    public void testUserClick_togglesOnlyClickedApp() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+        TargetApp app1 = new TargetApp("com.app.one", "App 1");
+        TargetApp app2 = new TargetApp("com.app.two", "App 2");
+        app1.setProtected(false);
+        app2.setProtected(false);
+
+        selectionManager.setSelected(app1.getPackageName(), true, false);
+        selectionManager.setSelected(app2.getPackageName(), true, false);
+
+        SimulatedViewHolder holder1 = new SimulatedViewHolder();
+        holder1.bindFixed(app1, selectionManager);
+
+        SimulatedViewHolder holder2 = new SimulatedViewHolder();
+        holder2.bindFixed(app2, selectionManager);
+
+        // User clicks holder1 to deselect App 1
+        holder1.performUserClick();
+
+        assertFalse("App 1 must now be deselected", selectionManager.isSelected(app1.getPackageName(), false));
+        assertFalse("Holder 1 view must be unchecked", holder1.isChecked);
+        assertTrue("App 2 must remain selected", selectionManager.isSelected(app2.getPackageName(), false));
+        assertTrue("Holder 2 view must remain checked", holder2.isChecked);
+        assertEquals(1, selectionManager.getSelectedCount());
+    }
+
+    @Test
+    public void testProtectedApps_canNeverBeSelected() {
+        AppSelectionManager selectionManager = new AppSelectionManager();
+        TargetApp protectedApp = new TargetApp("com.android.settings", "Settings");
+        protectedApp.setProtected(true);
+
+        // Attempt direct selection
+        boolean result = selectionManager.setSelected(protectedApp.getPackageName(), true, true);
+        assertFalse("setSelected must return false for protected app", result);
+        assertFalse("Protected app must not be in selectedPackages",
+                selectionManager.isSelected(protectedApp.getPackageName(), true));
+
+        // Attempt toggle
+        boolean toggleResult = selectionManager.toggle(protectedApp.getPackageName(), true);
+        assertFalse("toggle must return false for protected app", toggleResult);
+        assertFalse("Protected app must not be selected",
+                selectionManager.isSelected(protectedApp.getPackageName(), true));
+
+        // Attempt selectAll
+        selectionManager.selectAll(Collections.singletonList(protectedApp));
+        assertEquals("Selection count must remain 0", 0, selectionManager.getSelectedCount());
     }
 }
 

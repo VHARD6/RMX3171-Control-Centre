@@ -203,7 +203,7 @@ public final class ShizukuQuickCleaner {
                     stderr.isEmpty() ? (stdout.isEmpty() ? "Unknown error" : stdout) : stderr);
         } else if (reclaimed > 0) {
             summary = String.format(Locale.US,
-                    "System cache trimmed successfully! Reclaimed %s of system and quota-managed cache.",
+                    "Bulk cache trimmed successfully! Reclaimed %s of system and app caches across the device.",
                     formatBytes(reclaimed));
         } else {
             summary = "System cache is already optimal. No purgeable quota cache was released by Android installd.";

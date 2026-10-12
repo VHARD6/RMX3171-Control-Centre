@@ -34,6 +34,8 @@ public final class ProtectedPackages {
         map.put("com.coloros.wirelesssettings", "ColorOS wireless and network settings service");
         map.put("com.coloros.simsettings", "ColorOS SIM card management service");
         map.put("com.coloros.launcher", "ColorOS Home Launcher (desktop launcher interface)");
+        map.put("com.google.android.ext.services", "Android Services Library (internal framework extension service)");
+        map.put("com.android.ext.services", "Android Services Library fallback");
         EXCLUSIONS = Collections.unmodifiableMap(map);
     }
 

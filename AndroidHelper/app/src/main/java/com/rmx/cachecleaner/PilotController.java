@@ -122,7 +122,7 @@ public class PilotController {
     }
 
     private long stateStartTime = 0;
-    private static final long TIMEOUT_MS = 20000; // 20s timeout per automated transition
+    private static final long TIMEOUT_MS = 7000; // 7s timeout per automated transition
 
     // Session token to invalidate stale asynchronous callbacks
     private int activeSessionToken = 0;
@@ -178,9 +178,9 @@ public class PilotController {
         if (observedCache == null || !isStrictSizeString(observedCache)) {
             return CacheButtonDecision.ABORT_UNTRUSTWORTHY_CACHE_SIZE;
         }
-        boolean isZero = isZeroCacheString(observedCache);
+        boolean isZeroOrNegligible = isZeroCacheString(observedCache) || isNegligibleCacheString(observedCache);
         if (!isEnabled) {
-            if (isZero) {
+            if (isZeroOrNegligible) {
                 return CacheButtonDecision.CONCLUDE_ALREADY_CLEAN;
             } else {
                 return CacheButtonDecision.ABORT_DISABLED_WITH_POSITIVE_CACHE;
@@ -529,7 +529,8 @@ public class PilotController {
     }
 
     /**
-     * Fail the pilot operation safely.
+     * Fail the pilot operation or active batch item safely.
+     * In batch mode, a single app failure does NOT abort subsequent apps in the queue.
      */
     public synchronized void fail(String reason) {
         cancelAllCallbacks();
@@ -544,6 +545,41 @@ public class PilotController {
                 TargetApp app = batchQueue.get(batchIndex);
                 app.setStatus(TargetApp.Status.FAILED);
                 app.setStatusDetail("Failed: " + reason);
+                log("Batch item failed: " + app.getPackageName() + " -> " + reason);
+                if (batchListener != null) {
+                    batchListener.onAppFinished(app, Outcome.FAILED);
+                }
+            }
+            batchIndex++;
+            postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    processNextBatchItem();
+                }
+            }, 500);
+            return;
+        }
+
+        transitionTo(State.DONE, currentResult.summaryMessage);
+        notifyFinished();
+    }
+
+    /**
+     * Abort the entire batch due to an unrecoverable system failure (e.g. Accessibility Service disconnect).
+     */
+    public synchronized void failFatal(String reason) {
+        cancelAllCallbacks();
+        activeSessionToken++;
+
+        currentResult.outcome = Outcome.FAILED;
+        currentResult.summaryMessage = "Batch stopped: " + reason;
+        log("FATAL: " + reason);
+
+        if (isBatchMode) {
+            if (batchIndex < batchQueue.size()) {
+                TargetApp app = batchQueue.get(batchIndex);
+                app.setStatus(TargetApp.Status.FAILED);
+                app.setStatusDetail("Failed: " + reason);
                 if (batchListener != null) {
                     batchListener.onAppFinished(app, Outcome.FAILED);
                 }
@@ -551,7 +587,7 @@ public class PilotController {
             for (int i = batchIndex + 1; i < batchQueue.size(); i++) {
                 TargetApp app = batchQueue.get(i);
                 app.setStatus(TargetApp.Status.SKIPPED);
-                app.setStatusDetail("Skipped due to prior failure");
+                app.setStatusDetail("Skipped: " + reason);
             }
 
             int cleared = 0, alreadyClean = 0, failed = 0, skipped = 0;
@@ -563,7 +599,7 @@ public class PilotController {
             }
 
             String summary = String.format(Locale.US,
-                    "Batch stopped due to error: %s\nResults: %d cleared, %d already clean, %d failed, %d skipped.",
+                    "Batch stopped due to fatal error: %s\nResults: %d cleared, %d already clean, %d failed, %d skipped.",
                     reason, cleared, alreadyClean, failed, skipped);
             log(summary);
 
@@ -592,7 +628,7 @@ public class PilotController {
      */
     public synchronized void onServiceDisconnected() {
         if (currentState != State.IDLE && currentState != State.DONE) {
-            fail("Accessibility Service disconnected during pilot execution.");
+            failFatal("Accessibility Service disconnected during pilot execution.");
         }
     }
 
@@ -823,6 +859,25 @@ public class PilotController {
                 }
                 break;
             case ABORT_DISABLED_WITH_POSITIVE_CACHE:
+                if (isBatchMode && batchIndex < batchQueue.size()) {
+                    TargetApp app = batchQueue.get(batchIndex);
+                    app.setStatus(TargetApp.Status.ALREADY_CLEAN);
+                    app.setCacheBefore(observedCache);
+                    app.setCacheAfter(observedCache);
+                    app.setStatusDetail("Button disabled by system (" + observedCache + ")");
+                    log("Clear cache button disabled by system for " + targetAppLabel + " (" + observedCache + "). Concluding already clean in batch mode.");
+                    if (batchListener != null) {
+                        batchListener.onAppFinished(app, Outcome.ALREADY_CLEAN);
+                    }
+                    batchIndex++;
+                    postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            processNextBatchItem();
+                        }
+                    }, 500);
+                    return true;
+                }
                 fail("Safety abort: 'Clear cache' button is disabled, but observed cache reading is positive or unavailable: " + observedCache);
                 return true;
             case ABORT_NON_CLICKABLE:
@@ -994,7 +1049,7 @@ public class PilotController {
         boolean verified = false;
 
         if (cacheAfter != null) {
-            if (isZeroCacheString(cacheAfter)) {
+            if (isZeroCacheString(cacheAfter) || isNegligibleCacheString(cacheAfter)) {
                 verified = true;
             } else if (!before.equalsIgnoreCase(cacheAfter)) {
                 verified = true;
@@ -1143,6 +1198,33 @@ public class PilotController {
         if (str == null || str.isEmpty()) return false;
         String s = normalizeSizeString(str).toLowerCase(Locale.US);
         return s.matches("^0([.]0+)?\\s*(b|kb|mb|gb|tb)?$") || s.equals("0b") || s.equals("0 b");
+    }
+
+    public static long parseCacheSizeBytes(String str) {
+        if (str == null || str.isEmpty()) return -1;
+        String s = normalizeSizeString(str).trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)^([0-9]+(?:\\.[0-9]+)?)\\s*(B|KB|MB|GB|TB)$").matcher(s);
+        if (!m.matches()) return -1;
+        try {
+            double val = Double.parseDouble(m.group(1));
+            String unit = m.group(2).toUpperCase(Locale.US);
+            switch (unit) {
+                case "B": return (long) val;
+                case "KB": return (long) (val * 1024);
+                case "MB": return (long) (val * 1024 * 1024);
+                case "GB": return (long) (val * 1024 * 1024 * 1024);
+                default: return (long) val;
+            }
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    public static boolean isNegligibleCacheString(String str) {
+        if (str == null || str.isEmpty()) return false;
+        long bytes = parseCacheSizeBytes(str);
+        // Any reading up to 64 KB (65536 bytes) is considered filesystem directory overhead
+        return bytes >= 0 && bytes <= 64 * 1024;
     }
 
     private static boolean isForbiddenSectionValue(AccessibilityNodeInfo node, AccessibilityNodeInfo parent) {

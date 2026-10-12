@@ -215,4 +215,60 @@ public class PilotSafetyTest {
         assertFalse(controller.isCallbackValid(currentToken - 1, PilotController.State.IDLE));
         assertFalse(controller.isCallbackValid(currentToken + 1, PilotController.State.IDLE));
     }
+
+    // =========================================================================
+    // Edge Case 10: Negligible Cache Directory Overhead (e.g. 16 KB)
+    // =========================================================================
+
+    @Test
+    public void testParseCacheSizeBytes_computesAccurateBytes() {
+        assertEquals(0L, PilotController.parseCacheSizeBytes("0 B"));
+        assertEquals(0L, PilotController.parseCacheSizeBytes("0\u00A0B"));
+        assertEquals(16 * 1024L, PilotController.parseCacheSizeBytes("16 KB"));
+        assertEquals(32 * 1024L, PilotController.parseCacheSizeBytes("32 KB"));
+        assertEquals(64 * 1024L, PilotController.parseCacheSizeBytes("64 KB"));
+        assertEquals(128 * 1024L, PilotController.parseCacheSizeBytes("128 KB"));
+        assertEquals((long)(59.7 * 1024 * 1024), PilotController.parseCacheSizeBytes("59.7 MB"));
+        assertEquals(-1L, PilotController.parseCacheSizeBytes(null));
+        assertEquals(-1L, PilotController.parseCacheSizeBytes("Calculating..."));
+    }
+
+    @Test
+    public void testIsNegligibleCacheString_distinguishesDirectoryOverheadFromPositiveUserCache() {
+        // Filesystem directory overhead (<= 64 KB)
+        assertTrue(PilotController.isNegligibleCacheString("0 B"));
+        assertTrue(PilotController.isNegligibleCacheString("4 KB"));
+        assertTrue(PilotController.isNegligibleCacheString("12 KB"));
+        assertTrue(PilotController.isNegligibleCacheString("16 KB"));
+        assertTrue(PilotController.isNegligibleCacheString("32 KB"));
+        assertTrue(PilotController.isNegligibleCacheString("64 KB"));
+
+        // Positive clearable user caches (> 64 KB)
+        assertFalse(PilotController.isNegligibleCacheString("128 KB"));
+        assertFalse(PilotController.isNegligibleCacheString("59.7 MB"));
+        assertFalse(PilotController.isNegligibleCacheString("1.5 GB"));
+        assertFalse(PilotController.isNegligibleCacheString(null));
+        assertFalse(PilotController.isNegligibleCacheString(""));
+    }
+
+    @Test
+    public void testDecisionMatrix_Case2_NegligibleDirectoryCache_ConcludesAlreadyClean() {
+        // Empty directory inode cache reading (16 KB) with disabled button -> CONCLUDE_ALREADY_CLEAN
+        PilotController.CacheButtonDecision decision16 = PilotController.evaluateCacheButtonState(
+                1, false, false, "16 KB"
+        );
+        assertEquals(PilotController.CacheButtonDecision.CONCLUDE_ALREADY_CLEAN, decision16);
+
+        // 32 KB directory inode overhead with disabled button -> CONCLUDE_ALREADY_CLEAN
+        PilotController.CacheButtonDecision decision32 = PilotController.evaluateCacheButtonState(
+                1, false, false, "32 KB"
+        );
+        assertEquals(PilotController.CacheButtonDecision.CONCLUDE_ALREADY_CLEAN, decision32);
+
+        // However, genuine user cache (59.7 MB) with disabled button still triggers safety abort
+        PilotController.CacheButtonDecision decisionLarge = PilotController.evaluateCacheButtonState(
+                1, false, false, "59.7 MB"
+        );
+        assertEquals(PilotController.CacheButtonDecision.ABORT_DISABLED_WITH_POSITIVE_CACHE, decisionLarge);
+    }
 }

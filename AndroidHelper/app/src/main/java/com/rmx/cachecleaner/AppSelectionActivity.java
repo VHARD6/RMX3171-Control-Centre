@@ -98,9 +98,8 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     private boolean isReceiverRegistered = false;
     private boolean needsRefreshAfterBatch = false;
 
-    // Persistent package-based selection state
-    private final Set<String> selectedPackages = new HashSet<>();
-    private boolean hasInitializedSelection = false;
+    // Authoritative package-based selection manager
+    private final AppSelectionManager selectionManager = new AppSelectionManager();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -325,26 +324,17 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         }
 
         int newAppsCount = 0;
-        if (!hasInitializedSelection) {
+        if (!selectionManager.isInitialized()) {
             // First initialization: all selectable eligible apps start selected by default
-            selectedPackages.clear();
-            for (TargetApp freshApp : freshApps) {
-                if (!freshApp.isProtected()) {
-                    selectedPackages.add(freshApp.getPackageName());
-                    freshApp.setSelected(true);
-                } else {
-                    freshApp.setSelected(false);
-                }
-            }
-            hasInitializedSelection = true;
+            selectionManager.initializeDefaultSelection(freshApps);
         } else {
             // Subsequent runs: preserve exact selection by package name
             for (TargetApp freshApp : freshApps) {
                 String pkg = freshApp.getPackageName();
                 if (freshApp.isProtected()) {
+                    selectionManager.setSelected(pkg, false, true);
                     freshApp.setSelected(false);
-                    selectedPackages.remove(pkg);
-                } else if (selectedPackages.contains(pkg)) {
+                } else if (selectionManager.isSelected(pkg, false)) {
                     // Previously selected installed app
                     freshApp.setSelected(true);
                 } else if (prevStatuses.containsKey(pkg)) {
@@ -353,6 +343,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 } else {
                     // Newly discovered app: default to unselected for batch safety
                     newAppsCount++;
+                    selectionManager.setSelected(pkg, false, false);
                     freshApp.setSelected(false);
                     if (!freshApp.isProtected()) {
                         freshApp.setStatus(TargetApp.Status.PENDING);
@@ -376,7 +367,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         for (TargetApp app : freshApps) {
             installedPkgs.add(app.getPackageName());
         }
-        selectedPackages.retainAll(installedPkgs);
+        selectionManager.retainOnly(installedPkgs);
 
         targetApps = freshApps;
         applySearchFilter();
@@ -421,14 +412,14 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     }
 
     private void updateSelectionSummary(int displayedCount) {
-        int selected = 0;
+        int selected = selectionManager.countSelectedIn(targetApps);
         int selectableCount = 0;
         for (TargetApp app : targetApps) {
             if (!app.isProtected()) {
                 selectableCount++;
-                if (app.isSelected()) selected++;
             }
         }
+        selectionManager.syncAppSelectionState(targetApps);
 
         if (currentSearchQuery.isEmpty()) {
             tvSelectionCount.setText(String.format(Locale.US,
@@ -465,14 +456,10 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 ? targetApps
                 : SupportedAppsRegistry.filterApps(targetApps, currentSearchQuery);
 
-        for (TargetApp app : affected) {
-            if (app.isProtected()) continue;
-            app.setSelected(selected);
-            if (selected) {
-                selectedPackages.add(app.getPackageName());
-            } else {
-                selectedPackages.remove(app.getPackageName());
-            }
+        if (selected) {
+            selectionManager.selectAll(affected);
+        } else {
+            selectionManager.deselectAll(affected);
         }
         adapter.notifyDataSetChanged();
         updateSelectionSummary(affected.size());
@@ -484,16 +471,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 ? targetApps
                 : SupportedAppsRegistry.filterApps(targetApps, currentSearchQuery);
 
-        for (TargetApp app : affected) {
-            if (app.isProtected()) continue;
-            boolean newSelected = !app.isSelected();
-            app.setSelected(newSelected);
-            if (newSelected) {
-                selectedPackages.add(app.getPackageName());
-            } else {
-                selectedPackages.remove(app.getPackageName());
-            }
-        }
+        selectionManager.invertSelection(affected);
         adapter.notifyDataSetChanged();
         updateSelectionSummary(affected.size());
     }
@@ -510,7 +488,9 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     private void showBatchConfirmationDialog() {
         final List<TargetApp> selectedApps = new ArrayList<>();
         for (TargetApp app : targetApps) {
-            if (app.isSelected()) selectedApps.add(app);
+            if (selectionManager.isSelected(app.getPackageName(), app.isProtected())) {
+                selectedApps.add(app);
+            }
         }
 
         if (selectedApps.isEmpty()) {
@@ -578,10 +558,12 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
             if (app.isProtected()) {
                 continue;
             }
-            if (app.isSelected()) {
+            if (selectionManager.isSelected(app.getPackageName(), false)) {
+                app.setSelected(true);
                 app.setStatus(TargetApp.Status.PENDING);
                 app.setStatusDetail("Queued for cleaning");
             } else {
+                app.setSelected(false);
                 app.setStatus(TargetApp.Status.SKIPPED);
                 app.setStatusDetail("Not selected");
             }
@@ -661,7 +643,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                     ICON_CACHE.remove(pkg);
                     if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
                         SupportedAppsRegistry.unregisterAllowedPackage(pkg);
-                        selectedPackages.remove(pkg);
+                        selectionManager.onPackageRemoved(pkg);
                     }
                 }
 
@@ -828,9 +810,21 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
 
         @Override
         public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
+            // 1. Immediately detach listeners to prevent recycled view callbacks from mutating selection state
+            holder.cbSelect.setOnCheckedChangeListener(null);
+            holder.cbSelect.setOnClickListener(null);
+            holder.itemView.setOnClickListener(null);
+
             final TargetApp app = apps.get(position);
+            final String pkg = app.getPackageName();
+            final boolean isProtected = app.isProtected();
+            final boolean isSelected = selectionManager.isSelected(pkg, isProtected);
+
+            // Synchronize model state with authoritative selection
+            app.setSelected(isSelected);
+
             holder.tvLabel.setText(app.getResolvedLabel());
-            holder.tvPackage.setText(app.getPackageName());
+            holder.tvPackage.setText(pkg);
 
             if (holder.tvClassification != null) {
                 TargetApp.Classification cl = app.getClassification();
@@ -844,7 +838,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 }
             }
 
-            if (app.isProtected()) {
+            if (isProtected) {
                 holder.tvDetail.setText(app.getStatusDetail());
                 holder.cbSelect.setEnabled(false);
                 holder.cbSelect.setChecked(false);
@@ -856,12 +850,11 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                     holder.tvDetail.setText(app.getStatusDetail());
                 }
                 holder.cbSelect.setEnabled(isSelectable && !isCleaningInProgress);
-                holder.cbSelect.setChecked(app.isSelected());
+                holder.cbSelect.setChecked(isSelected);
                 holder.itemView.setAlpha(1.0f);
             }
 
             // Asynchronous icon loading with cache
-            final String pkg = app.getPackageName();
             Drawable cachedIcon = ICON_CACHE.get(pkg);
             if (cachedIcon != null) {
                 holder.ivIcon.setImageDrawable(cachedIcon);
@@ -892,34 +885,44 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
 
             updateBadgeAppearance(holder.tvStatusBadge, app.getStatus());
 
-            holder.cbSelect.setOnCheckedChangeListener(null);
-            holder.cbSelect.setChecked(app.isSelected());
-            holder.cbSelect.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    if (!app.isProtected()) {
-                        app.setSelected(isChecked);
-                        if (isChecked) {
-                            selectedPackages.add(app.getPackageName());
-                        } else {
-                            selectedPackages.remove(app.getPackageName());
-                        }
-                        updateSelectionSummary(apps.size());
-                    }
-                }
-            });
-
-            holder.itemView.setOnClickListener(new View.OnClickListener() {
+            // User-initiated click listener for checkbox and item row
+            View.OnClickListener clickListener = new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (isCleaningInProgress || !isSelectable) return;
-                    if (app.isProtected()) {
-                        Toast.makeText(AppSelectionActivity.this, app.getStatusDetail(), Toast.LENGTH_SHORT).show();
-                    } else {
-                        holder.cbSelect.setChecked(!holder.cbSelect.isChecked());
+                    if (isCleaningInProgress || !isSelectable) {
+                        holder.cbSelect.setChecked(selectionManager.isSelected(pkg, isProtected));
+                        return;
                     }
+                    if (isProtected) {
+                        holder.cbSelect.setChecked(false);
+                        Toast.makeText(AppSelectionActivity.this, app.getStatusDetail(), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    boolean nextState;
+                    if (v == holder.cbSelect) {
+                        nextState = holder.cbSelect.isChecked();
+                    } else {
+                        nextState = !selectionManager.isSelected(pkg, isProtected);
+                        holder.cbSelect.setChecked(nextState);
+                    }
+
+                    selectionManager.setSelected(pkg, nextState, isProtected);
+                    app.setSelected(nextState);
+                    updateSelectionSummary();
                 }
-            });
+            };
+
+            holder.cbSelect.setOnClickListener(clickListener);
+            holder.itemView.setOnClickListener(clickListener);
+        }
+
+        @Override
+        public void onViewRecycled(@NonNull ViewHolder holder) {
+            super.onViewRecycled(holder);
+            holder.cbSelect.setOnCheckedChangeListener(null);
+            holder.cbSelect.setOnClickListener(null);
+            holder.itemView.setOnClickListener(null);
         }
 
         @Override
