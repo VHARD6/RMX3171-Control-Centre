@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
@@ -19,23 +20,34 @@ import java.util.Locale;
 import rikka.shizuku.Shizuku;
 
 /**
- * Phase 7: Unified Dual-Tier Cache Cleaning Main Hub.
+ * RMX Device Hub — Home Activity
  *
- * Tier 1: Quick Clean All
- * - Fast, system-wide, system-managed bulk cache trim using `pm trim-caches 100G` via Shizuku shell.
- * - Measures free storage before and after using StatFs.
- * - Honest delta reporting and scope disclosure.
- *
- * Tier 2: Deep Clean Selected Apps
- * - Comprehensive private internal cache cleaner using guarded Accessibility service automation.
- * - Discovers all installed user applications dynamically.
- * - Strictly protects application user data, logins, and databases.
+ * Core Modules:
+ * 1. Primary Hardware Utility: Software Power Menu shortcut (GLOBAL_ACTION_POWER_DIALOG)
+ * 2. Storage & Cache Maintenance:
+ *    - Tier 1: Quick Clean All (Bulk system & quota-managed cache trim via Shizuku pm trim-caches 100G)
+ *    - Tier 2: Guarded Multi-App Deep Clean (Private internal cache cleaner via Accessibility automation)
+ * 3. System Shortcuts & Diagnostics:
+ *    - Android Accessibility Settings shortcut
+ *    - App Info & Storage management
+ *    - Single-App Pilot Diagnostic (Instagram)
  */
 public class MainActivity extends Activity {
 
     private static final int REQUEST_CODE_SHIZUKU_PERMISSION = 1003;
 
-    // Tier 1: Quick Clean Views
+    // Header & Device Context
+    private TextView tvDeviceContext;
+    private TextView tvHeaderA11yStatus;
+    private TextView tvHeaderShizukuStatus;
+
+    // Primary Control 1: Power Menu Views
+    private Button btnOpenPowerMenu;
+    private LinearLayout llPowerA11yWarning;
+    private TextView tvPowerA11yWarning;
+    private Button btnPowerEnableA11y;
+
+    // Primary Control 2: Tier 1 Quick Clean Views
     private TextView tvQuickShizukuStatus;
     private Button btnQuickShizukuAction;
     private Button btnQuickCleanAll;
@@ -52,15 +64,25 @@ public class MainActivity extends Activity {
     private Button btnTier2OpenA11y;
     private Button btnOpenMultiAppCleaner;
 
-    // Pilot Views (Phase 4.2)
+    // Section 3: History Views
+    private TextView tvMainHistoryCountBadge;
+    private LinearLayout llMainHistoryEmpty;
+    private LinearLayout llMainHistoryLatest;
+    private TextView tvMainLatestType;
+    private TextView tvMainLatestOutcome;
+    private TextView tvMainLatestTime;
+    private TextView tvMainLatestDelta;
+    private TextView tvMainLatestSummary;
+    private Button btnViewCleaningHistory;
+
+    // System Utilities & Pilot Views
+    private Button btnOpenSystemA11y;
+    private Button btnAppInfo;
     private Button btnTestPilotInstagram;
     private LinearLayout llPilotResult;
     private TextView tvPilotOutcomeTitle;
     private TextView tvPilotOutcomeSummary;
     private TextView tvPilotCacheDetails;
-
-    // Secondary Action Button
-    private Button btnAppInfo;
 
     // Progress Dialog for Quick Clean
     private AlertDialog quickCleanProgressDialog;
@@ -133,6 +155,17 @@ public class MainActivity extends Activity {
     }
 
     private void initViews() {
+        // Header
+        tvDeviceContext = findViewById(R.id.tv_device_context);
+        tvHeaderA11yStatus = findViewById(R.id.tv_header_a11y_status);
+        tvHeaderShizukuStatus = findViewById(R.id.tv_header_shizuku_status);
+
+        // Power Menu Views
+        btnOpenPowerMenu = findViewById(R.id.btn_open_power_menu);
+        llPowerA11yWarning = findViewById(R.id.ll_power_a11y_warning);
+        tvPowerA11yWarning = findViewById(R.id.tv_power_a11y_warning);
+        btnPowerEnableA11y = findViewById(R.id.btn_power_enable_a11y);
+
         // Tier 1 Views
         tvQuickShizukuStatus = findViewById(R.id.tv_quick_shizuku_status);
         btnQuickShizukuAction = findViewById(R.id.btn_quick_shizuku_action);
@@ -150,18 +183,44 @@ public class MainActivity extends Activity {
         btnTier2OpenA11y = findViewById(R.id.btn_tier2_open_a11y);
         btnOpenMultiAppCleaner = findViewById(R.id.btn_open_multiapp_cleaner);
 
-        // Pilot Views
+        // Section 3: History Views
+        tvMainHistoryCountBadge = findViewById(R.id.tv_main_history_count_badge);
+        llMainHistoryEmpty = findViewById(R.id.ll_main_history_empty);
+        llMainHistoryLatest = findViewById(R.id.ll_main_history_latest);
+        tvMainLatestType = findViewById(R.id.tv_main_latest_type);
+        tvMainLatestOutcome = findViewById(R.id.tv_main_latest_outcome);
+        tvMainLatestTime = findViewById(R.id.tv_main_latest_time);
+        tvMainLatestDelta = findViewById(R.id.tv_main_latest_delta);
+        tvMainLatestSummary = findViewById(R.id.tv_main_latest_summary);
+        btnViewCleaningHistory = findViewById(R.id.btn_view_cleaning_history);
+
+        // System Utilities & Pilot Views
+        btnOpenSystemA11y = findViewById(R.id.btn_open_system_a11y);
+        btnAppInfo = findViewById(R.id.btn_app_info);
         btnTestPilotInstagram = findViewById(R.id.btn_test_pilot_instagram);
         llPilotResult = findViewById(R.id.ll_pilot_result);
         tvPilotOutcomeTitle = findViewById(R.id.tv_pilot_outcome_title);
         tvPilotOutcomeSummary = findViewById(R.id.tv_pilot_outcome_summary);
         tvPilotCacheDetails = findViewById(R.id.tv_pilot_cache_details);
-
-        // Secondary
-        btnAppInfo = findViewById(R.id.btn_app_info);
     }
 
     private void setupListeners() {
+        // Power Menu Action Button
+        btnOpenPowerMenu.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                handlePowerMenuClick();
+            }
+        });
+
+        // Power Menu A11y Enable Button
+        btnPowerEnableA11y.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PowerMenuController.openAccessibilitySettings(MainActivity.this);
+            }
+        });
+
         // Tier 1: Quick Clean Action Button
         btnQuickCleanAll.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -187,7 +246,7 @@ public class MainActivity extends Activity {
             btnTier2OpenA11y.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    openAccessibilitySettings();
+                    PowerMenuController.openAccessibilitySettings(MainActivity.this);
                 }
             });
         }
@@ -200,12 +259,12 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Single-App Pilot
-        if (btnTestPilotInstagram != null) {
-            btnTestPilotInstagram.setOnClickListener(new View.OnClickListener() {
+        // System Utility: Direct Accessibility Settings Shortcut
+        if (btnOpenSystemA11y != null) {
+            btnOpenSystemA11y.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    showPilotStep1ConfirmationDialog();
+                    PowerMenuController.openAccessibilitySettings(MainActivity.this);
                 }
             });
         }
@@ -219,12 +278,33 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        // Single-App Pilot (Instagram)
+        if (btnTestPilotInstagram != null) {
+            btnTestPilotInstagram.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showPilotStep1ConfirmationDialog();
+                }
+            });
+        }
+
+        // Section 3: View Full History
+        if (btnViewCleaningHistory != null) {
+            btnViewCleaningHistory.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    startActivity(new Intent(MainActivity.this, CleaningHistoryActivity.class));
+                }
+            });
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         updateUiState();
+        updateHistorySection();
         handlePilotIntent(getIntent());
     }
 
@@ -235,28 +315,156 @@ public class MainActivity extends Activity {
         handlePilotIntent(intent);
     }
 
+    private void handlePowerMenuClick() {
+        PowerMenuController.Status status = PowerMenuController.getStatus(this);
+        if (status == PowerMenuController.Status.SERVICE_DISABLED) {
+            showAccessibilityRequiredDialog();
+            return;
+        }
+
+        PowerMenuController.Result result = PowerMenuController.triggerPowerMenu(this);
+        switch (result) {
+            case SUCCESS:
+                Toast.makeText(this, R.string.power_menu_opened, Toast.LENGTH_SHORT).show();
+                break;
+            case SERVICE_NOT_ENABLED:
+                showAccessibilityRequiredDialog();
+                break;
+            case SERVICE_NOT_CONNECTED:
+                Toast.makeText(this, R.string.power_menu_a11y_disconnected, Toast.LENGTH_LONG).show();
+                updateUiState();
+                break;
+            case CLEANING_IN_PROGRESS:
+                Toast.makeText(this, R.string.power_menu_cleaning_busy, Toast.LENGTH_SHORT).show();
+                break;
+            case THROTTLED:
+                // Ignored quietly to prevent accidental duplicate actions
+                break;
+            case FAILED_SYSTEM_REJECTED:
+                Toast.makeText(this, R.string.power_menu_failed, Toast.LENGTH_LONG).show();
+                break;
+        }
+    }
+
+    private void showAccessibilityRequiredDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Accessibility Service Required")
+                .setMessage("To open Android's power dialog without the physical button, RMX Device Hub requires its Accessibility Service to be active in Android Settings.\n\nPlease enable it and try again.")
+                .setPositiveButton("Open Settings", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        PowerMenuController.openAccessibilitySettings(MainActivity.this);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     private void updateUiState() {
-        // 1. Update Shizuku Status for Tier 1
+        // 0. Update Device Context Header
+        if (tvDeviceContext != null) {
+            String mfg = Build.MANUFACTURER;
+            String model = Build.MODEL;
+            String brand = (mfg != null && mfg.length() > 0)
+                    ? Character.toUpperCase(mfg.charAt(0)) + mfg.substring(1).toLowerCase(Locale.US)
+                    : "Realme";
+            tvDeviceContext.setText(brand + " " + model + " • Android " + Build.VERSION.RELEASE);
+        }
+
+        // 1. Update Accessibility Status
+        PowerMenuController.Status powerStatus = PowerMenuController.getStatus(this);
+        boolean isA11yActive = (powerStatus == PowerMenuController.Status.READY);
+
+        if (tvHeaderA11yStatus != null) {
+            if (isA11yActive) {
+                tvHeaderA11yStatus.setText("ACTIVE");
+                tvHeaderA11yStatus.setTextColor(getColor(R.color.accent_badge));
+            } else if (powerStatus == PowerMenuController.Status.SERVICE_DISCONNECTED) {
+                tvHeaderA11yStatus.setText("DISCONNECTED");
+                tvHeaderA11yStatus.setTextColor(getColor(R.color.status_warning));
+            } else {
+                tvHeaderA11yStatus.setText("DISABLED");
+                tvHeaderA11yStatus.setTextColor(getColor(R.color.status_error));
+            }
+        }
+
+        if (tvTier2A11yStatus != null) {
+            if (isA11yActive) {
+                tvTier2A11yStatus.setText("ACTIVE");
+                tvTier2A11yStatus.setTextColor(getColor(R.color.accent_badge));
+                if (btnTier2OpenA11y != null) btnTier2OpenA11y.setVisibility(View.GONE);
+            } else {
+                tvTier2A11yStatus.setText("DISABLED");
+                tvTier2A11yStatus.setTextColor(getColor(R.color.status_error));
+                if (btnTier2OpenA11y != null) btnTier2OpenA11y.setVisibility(View.VISIBLE);
+            }
+        }
+
+        // Power Menu Warning / State
+        if (isA11yActive) {
+            llPowerA11yWarning.setVisibility(View.GONE);
+            btnOpenPowerMenu.setText(R.string.btn_power_menu);
+        } else if (powerStatus == PowerMenuController.Status.SERVICE_DISCONNECTED) {
+            llPowerA11yWarning.setVisibility(View.VISIBLE);
+            tvPowerA11yWarning.setText(R.string.power_menu_a11y_disconnected);
+            btnPowerEnableA11y.setText(R.string.btn_retry_a11y);
+            btnPowerEnableA11y.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    updateUiState();
+                }
+            });
+            btnOpenPowerMenu.setText(R.string.btn_power_menu);
+        } else {
+            llPowerA11yWarning.setVisibility(View.VISIBLE);
+            tvPowerA11yWarning.setText(R.string.power_menu_a11y_required);
+            btnPowerEnableA11y.setText(R.string.btn_enable_a11y);
+            btnPowerEnableA11y.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    PowerMenuController.openAccessibilitySettings(MainActivity.this);
+                }
+            });
+            btnOpenPowerMenu.setText("ENABLE ACCESSIBILITY FOR POWER MENU");
+        }
+
+        // 2. Update Shizuku Status for Tier 1
         boolean isInstalled = ShizukuCacheCleaner.isShizukuInstalled(this);
         boolean isRunning = ShizukuCacheCleaner.isShizukuRunning();
         boolean isAuthorized = ShizukuCacheCleaner.isShizukuAuthorized();
 
+        if (tvHeaderShizukuStatus != null) {
+            if (!isInstalled) {
+                tvHeaderShizukuStatus.setText("MISSING");
+                tvHeaderShizukuStatus.setTextColor(getColor(R.color.status_error));
+            } else if (!isRunning) {
+                tvHeaderShizukuStatus.setText("STOPPED");
+                tvHeaderShizukuStatus.setTextColor(getColor(R.color.status_warning));
+            } else if (!isAuthorized) {
+                tvHeaderShizukuStatus.setText("UNAUTHORIZED");
+                tvHeaderShizukuStatus.setTextColor(getColor(R.color.status_warning));
+            } else {
+                tvHeaderShizukuStatus.setText("READY");
+                tvHeaderShizukuStatus.setTextColor(getColor(R.color.accent_badge));
+            }
+        }
+
         if (!isInstalled) {
             tvQuickShizukuStatus.setText("NOT INSTALLED");
-            tvQuickShizukuStatus.setTextColor(getColor(android.R.color.holo_red_light));
+            tvQuickShizukuStatus.setTextColor(getColor(R.color.status_error));
             btnQuickShizukuAction.setText("Install Shizuku App");
             btnQuickShizukuAction.setVisibility(View.VISIBLE);
             btnQuickCleanAll.setText("INSTALL SHIZUKU FOR QUICK CLEAN");
         } else if (!isRunning) {
             tvQuickShizukuStatus.setText("NOT RUNNING");
-            tvQuickShizukuStatus.setTextColor(getColor(android.R.color.holo_orange_light));
+            tvQuickShizukuStatus.setTextColor(getColor(R.color.status_warning));
             btnQuickShizukuAction.setText("Open Shizuku & Start Service");
             btnQuickShizukuAction.setVisibility(View.VISIBLE);
             btnQuickCleanAll.setText("START SHIZUKU FOR QUICK CLEAN");
         } else if (!isAuthorized) {
             tvQuickShizukuStatus.setText("UNAUTHORIZED");
-            tvQuickShizukuStatus.setTextColor(getColor(android.R.color.holo_orange_light));
-            btnQuickShizukuAction.setText("Authorize RMX Cache Cleaner");
+            tvQuickShizukuStatus.setTextColor(getColor(R.color.status_warning));
+            btnQuickShizukuAction.setText("Authorize RMX Device Hub");
             btnQuickShizukuAction.setVisibility(View.VISIBLE);
             btnQuickCleanAll.setText("AUTHORIZE SHIZUKU FOR QUICK CLEAN");
         } else {
@@ -265,17 +473,89 @@ public class MainActivity extends Activity {
             btnQuickShizukuAction.setVisibility(View.GONE);
             btnQuickCleanAll.setText(R.string.btn_quick_clean_all);
         }
+    }
 
-        // 2. Update Accessibility Status for Tier 2
-        boolean isA11yActive = SettingsInspectionAccessibilityService.isServiceRunning();
-        if (isA11yActive) {
-            tvTier2A11yStatus.setText("ACTIVE");
-            tvTier2A11yStatus.setTextColor(getColor(R.color.accent_badge));
-            btnTier2OpenA11y.setVisibility(View.GONE);
-        } else {
-            tvTier2A11yStatus.setText("DISABLED");
-            tvTier2A11yStatus.setTextColor(getColor(android.R.color.holo_red_light));
-            btnTier2OpenA11y.setVisibility(View.VISIBLE);
+    private void updateHistorySection() {
+        CleaningHistoryRepository repo = CleaningHistoryRepository.getInstance(this);
+        int count = repo.getRecordCount();
+        CleaningHistoryRecord latest = repo.getLatestRecord();
+
+        if (tvMainHistoryCountBadge != null) {
+            tvMainHistoryCountBadge.setText(count + " RUNS");
+        }
+
+        if (btnViewCleaningHistory != null) {
+            btnViewCleaningHistory.setText(count > 0
+                    ? String.format(Locale.US, "View Full Cleaning History (%d)", count)
+                    : "View Full Cleaning History");
+        }
+
+        if (count == 0 || latest == null) {
+            if (llMainHistoryEmpty != null) llMainHistoryEmpty.setVisibility(View.VISIBLE);
+            if (llMainHistoryLatest != null) llMainHistoryLatest.setVisibility(View.GONE);
+            return;
+        }
+
+        if (llMainHistoryEmpty != null) llMainHistoryEmpty.setVisibility(View.GONE);
+        if (llMainHistoryLatest != null) llMainHistoryLatest.setVisibility(View.VISIBLE);
+
+        if (tvMainLatestType != null) {
+            if (latest.getCleanType() == CleaningHistoryRecord.CleanType.QUICK_CLEAN) {
+                tvMainLatestType.setText("QUICK CLEAN");
+                tvMainLatestType.setTextColor(getColor(R.color.accent_primary));
+            } else if (latest.getCleanType() == CleaningHistoryRecord.CleanType.DEEP_CLEAN) {
+                tvMainLatestType.setText("GUARDED DEEP CLEAN");
+                tvMainLatestType.setTextColor(getColor(R.color.badge_user_app));
+            } else {
+                tvMainLatestType.setText("TEST PILOT");
+                tvMainLatestType.setTextColor(getColor(R.color.badge_preinstalled));
+            }
+        }
+
+        if (tvMainLatestOutcome != null) {
+            tvMainLatestOutcome.setText(latest.getOutcome().getDisplayName());
+            switch (latest.getOutcome()) {
+                case SUCCESS:
+                    tvMainLatestOutcome.setTextColor(getColor(R.color.status_success));
+                    break;
+                case PARTIAL:
+                case CANCELLED:
+                    tvMainLatestOutcome.setTextColor(getColor(R.color.status_warning));
+                    break;
+                case FAILED:
+                default:
+                    tvMainLatestOutcome.setTextColor(getColor(R.color.status_error));
+                    break;
+            }
+        }
+
+        if (tvMainLatestTime != null) {
+            tvMainLatestTime.setText(latest.getFormattedDate());
+        }
+
+        if (tvMainLatestDelta != null) {
+            if (!latest.isStorageMeasured()) {
+                tvMainLatestDelta.setText("Storage Unavailable");
+                tvMainLatestDelta.setTextColor(getColor(R.color.text_muted));
+            } else {
+                long delta = latest.getBytesDelta();
+                if (delta > 0) {
+                    tvMainLatestDelta.setText("+" + StorageMeasurementUtil.formatBytes(delta));
+                    tvMainLatestDelta.setTextColor(getColor(R.color.status_success));
+                } else if (delta == 0) {
+                    tvMainLatestDelta.setText("0 B (No Change)");
+                    tvMainLatestDelta.setTextColor(getColor(R.color.text_secondary));
+                } else {
+                    tvMainLatestDelta.setText("-" + StorageMeasurementUtil.formatBytes(Math.abs(delta)));
+                    tvMainLatestDelta.setTextColor(getColor(R.color.status_warning));
+                }
+            }
+        }
+
+        if (tvMainLatestSummary != null) {
+            String summary = latest.getSummaryMessage();
+            if (summary == null || summary.isEmpty()) summary = latest.getDetailNote();
+            tvMainLatestSummary.setText(summary);
         }
     }
 
@@ -309,11 +589,25 @@ public class MainActivity extends Activity {
         ShizukuQuickCleaner.executeQuickClean(this, new ShizukuQuickCleaner.QuickCleanCallback() {
             @Override
             public void onComplete(final ShizukuQuickCleaner.QuickCleanResult result) {
+                // Record in history repository
+                CleaningHistoryRecord.Outcome outcome = result.success
+                        ? CleaningHistoryRecord.Outcome.SUCCESS
+                        : CleaningHistoryRecord.Outcome.FAILED;
+                CleaningHistoryRecord record = CleaningHistoryRecord.createQuickClean(
+                        outcome,
+                        result.durationMs,
+                        result.freeBytesBefore,
+                        result.freeBytesAfter,
+                        result.summaryMessage
+                );
+                CleaningHistoryRepository.getInstance(MainActivity.this).addRecord(record);
+
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         dismissQuickCleanProgressDialog();
                         renderQuickCleanResult(result);
+                        updateHistorySection();
                     }
                 });
             }
@@ -360,7 +654,7 @@ public class MainActivity extends Activity {
 
         if (!result.success) {
             tvQuickCleanStatus.setText("QUICK CLEAN FAILED");
-            tvQuickCleanStatus.setTextColor(getColor(android.R.color.holo_red_light));
+            tvQuickCleanStatus.setTextColor(getColor(R.color.status_error));
             tvQuickStorageBefore.setText("Status: Error occurred during execution");
             tvQuickStorageAfter.setText(result.summaryMessage);
             tvQuickStorageReclaimed.setText("Reclaimed: 0 B");
@@ -393,14 +687,6 @@ public class MainActivity extends Activity {
         tvQuickScopeNote.setText("Android system and quota-managed download caches were trimmed down to the system floor. Individual private app caches require Tier 2 Deep Clean.");
     }
 
-    private void openAccessibilitySettings() {
-        try {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-        } catch (Throwable t) {
-            Toast.makeText(this, R.string.toast_unable_to_open_settings, Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private void openAppInfo() {
         try {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
@@ -413,7 +699,7 @@ public class MainActivity extends Activity {
     }
 
     // =========================================================================
-    // Phase 4.2: Single-App Pilot Methods
+    // Single-App Pilot Diagnostic Methods (Instagram)
     // =========================================================================
 
     private void setupPilotController() {
@@ -445,11 +731,11 @@ public class MainActivity extends Activity {
         if (!SettingsInspectionAccessibilityService.isServiceRunning()) {
             new AlertDialog.Builder(this)
                     .setTitle("Accessibility Service Required")
-                    .setMessage("To test private cache cleaning, RMX Cache Cleaner's Accessibility Probe must be active in Android Settings.\n\nPlease enable it and try again.")
+                    .setMessage("To test private cache cleaning, RMX Device Hub's Accessibility Service must be active in Android Settings.\n\nPlease enable it and try again.")
                     .setPositiveButton("Open Settings", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            openAccessibilitySettings();
+                            PowerMenuController.openAccessibilitySettings(MainActivity.this);
                         }
                     })
                     .setNegativeButton(android.R.string.cancel, null)
@@ -510,7 +796,7 @@ public class MainActivity extends Activity {
 
             case FAILED:
                 tvPilotOutcomeTitle.setText("PILOT OUTCOME: FAILED");
-                tvPilotOutcomeTitle.setTextColor(getColor(android.R.color.holo_red_light));
+                tvPilotOutcomeTitle.setTextColor(getColor(R.color.status_error));
                 tvPilotOutcomeSummary.setText(result.summaryMessage);
                 tvPilotCacheDetails.setText("Safety abort or error. Check Logcat (tag: RMX_PILOT).");
                 break;

@@ -1,22 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg_main">#121214</color>
+    <!-- Background and Surface Foundations (Charcoal & Warm-Gray) -->
+    <color name="bg_main">#141416</color>
     <color name="bg_card">#1E1E22</color>
-    <color name="border_card">#2C2C32</color>
+    <color name="bg_card_secondary">#18181B</color>
+    <color name="border_card">#2B2B31</color>
+    <color name="border_subtle">#222227</color>
     
-    <color name="btn_primary_bg">#00A884</color>
-    <color name="btn_primary_pressed">#00876A</color>
+    <!-- Primary Brand Accent (Warm Amber / Muted Orange) -->
+    <color name="accent_primary">#E68A38</color>
+    <color name="accent_primary_pressed">#C87428</color>
+    <color name="btn_primary_bg">#E68A38</color>
+    <color name="btn_primary_pressed">#C87428</color>
+    <color name="btn_primary_text">#141416</color>
     
-    <color name="btn_secondary_bg">#25252A</color>
-    <color name="btn_secondary_pressed">#32323A</color>
-    <color name="btn_secondary_border">#3A3A42</color>
+    <!-- Secondary Neutral Surface & Buttons -->
+    <color name="btn_secondary_bg">#26262B</color>
+    <color name="btn_secondary_pressed">#323238</color>
+    <color name="btn_secondary_border">#383840</color>
+    <color name="btn_secondary_text">#EDEDEF</color>
+
+    <!-- Semantic State Accents -->
+    <color name="accent_badge">#2BB882</color>
+    <color name="status_success">#2BB882</color>
+    <color name="status_warning">#E09F3E</color>
+    <color name="status_error">#E55353</color>
+    <color name="status_info">#3B82F6</color>
+
+    <!-- Classification Badge Accents -->
+    <color name="badge_protected">#E09F3E</color>
+    <color name="badge_disabled">#E55353</color>
+    <color name="badge_user_app">#3B82F6</color>
+    <color name="badge_preinstalled">#A855F7</color>
     
-    <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#9E9EA8</color>
-    <color name="text_muted">#686874</color>
-    <color name="accent_badge">#00C49F</color>
-    <color name="badge_protected">#FFA726</color>
-    <color name="badge_disabled">#EF5350</color>
-    <color name="badge_user_app">#42A5F5</color>
-    <color name="badge_preinstalled">#AB47BC</color>
+    <!-- Typography & Contrast (Deliberate Hierarchy) -->
+    <color name="text_primary">#EDEDEF</color>
+    <color name="text_secondary">#A1A1AA</color>
+    <color name="text_muted">#71717A</color>
 </resources>

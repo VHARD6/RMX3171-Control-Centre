@@ -47,6 +47,12 @@
             android:launchMode="singleTop"
             android:label="Multi-App Cache Cleaner" />
 
+        <!-- Cleaning Results & History Activity -->
+        <activity
+            android:name=".CleaningHistoryActivity"
+            android:exported="false"
+            android:label="Cleaning History" />
+
         <!-- Shizuku IPC Provider -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

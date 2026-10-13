@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RMX Cache Cleaner</string>
-    <string name="header_subtitle">System-controlled cache cleanup</string>
+    <!-- Application Identity -->
+    <string name="app_name">RMX Device Hub</string>
+    <string name="header_subtitle">Realme RMX3171 • Device &amp; Cache Utility Center</string>
+    <string name="device_identity">Realme RMX3171 • Android 11</string>
     
     <!-- State 1: Permission Required -->
     <string name="card_badge_permission">PERMISSION REQUIRED</string>
@@ -25,8 +27,8 @@
     <string name="shizuku_btn_start">OPEN SHIZUKU</string>
 
     <string name="shizuku_badge_unauthorized">AUTHORIZATION REQUIRED</string>
-    <string name="shizuku_desc_unauthorized">Authorize RMX Cache Cleaner in Shizuku.</string>
-    <string name="shizuku_btn_authorize">AUTHORIZE RMX CACHE CLEANER</string>
+    <string name="shizuku_desc_unauthorized">Authorize RMX Device Hub in Shizuku.</string>
+    <string name="shizuku_btn_authorize">AUTHORIZE RMX DEVICE HUB</string>
 
     <string name="shizuku_badge_ready">DEEP CACHE CLEAN READY</string>
     <string name="shizuku_desc_ready">Uses Shizuku to clear private app cache that Android\'s normal cache cleaner cannot access.</string>
@@ -50,7 +52,7 @@
     <string name="btn_full_clean">FULL ACCESSIBLE CACHE CLEAN</string>
     <string name="btn_deep_clean">DEEP CACHE CLEAN</string>
     <string name="btn_standard_clean">STANDARD CLEAN ONLY</string>
-    <string name="btn_app_info">APP INFO</string>
+    <string name="btn_app_info">APP INFO &amp; PERMISSIONS</string>
 
     <!-- Scope Explanations -->
     <string name="scope_standard_label">Standard Clean:</string>
@@ -100,22 +102,22 @@
     <!-- Feedback -->
     <string name="toast_unable_to_open_settings">Unable to open system settings.</string>
     <string name="toast_unable_to_open_app_info">Unable to open app info.</string>
-    <string name="footer_note">System-controlled cache cleanup • Official Android 11 API</string>
+    <string name="footer_note">RMX Device Hub • Realme RMX3171 Utility Center</string>
 
     <!-- Phase 4: Accessibility Feasibility Probe -->
-    <string name="accessibility_probe_label">RMX Cache Cleaner Diagnostic Probe</string>
-    <string name="accessibility_probe_desc">Diagnostic probe to passively inspect ColorOS 11 Settings screens for cache controls without modifying data or clearing cache.</string>
-    <string name="probe_card_badge">DIAGNOSTIC PROBE (PHASE 4)</string>
-    <string name="probe_status_active">PROBE STATUS: ACTIVE (LISTENING)</string>
-    <string name="probe_status_inactive">PROBE STATUS: INACTIVE</string>
-    <string name="probe_instructions">Passive diagnostic only. Enable the probe in Accessibility Settings, then tap OPEN INSTAGRAM APP INFO and navigate to Storage Usage without tapping Clear Cache. Inspect logcat under tag RMX_A11Y_PROBE.</string>
+    <string name="accessibility_probe_label">RMX Device Hub Service</string>
+    <string name="accessibility_probe_desc">Guarded automation and power dialog service for RMX Device Hub. Inspects Settings screens for cache clearing without touching personal data.</string>
+    <string name="probe_card_badge">SERVICE STATUS</string>
+    <string name="probe_status_active">ACTIVE (READY)</string>
+    <string name="probe_status_inactive">INACTIVE</string>
+    <string name="probe_instructions">Enable the service in Accessibility Settings to unlock Power Menu and Guarded Deep Clean.</string>
     <string name="btn_open_a11y_settings">ACCESSIBILITY SETTINGS</string>
     <string name="btn_probe_instagram">OPEN INSTAGRAM APP INFO</string>
 
-    <!-- Phase 4.2: Single-App Private Cache Cleaning Pilot -->
-    <string name="pilot_card_badge">SINGLE-APP PILOT (PHASE 4.2)</string>
-    <string name="pilot_btn_title">TEST PRIVATE CACHE CLEANING — INSTAGRAM</string>
-    <string name="pilot_desc">Experimental pilot to test automated navigation and private cache cleaning for Instagram only. Operates under strict dual-confirmation safeguards and never touches app data.</string>
+    <!-- Single-App Pilot -->
+    <string name="pilot_card_badge">DIAGNOSTIC TEST — SINGLE-APP PILOT</string>
+    <string name="pilot_btn_title">TEST PILOT — INSTAGRAM</string>
+    <string name="pilot_desc">Runs an isolated test of guarded cache cleaning on Instagram only to verify Settings UI automation.</string>
     <string name="pilot_step1_dialog_title">Test Private Cache Cleaning (Instagram)?</string>
     <string name="pilot_step1_dialog_msg">This will test automated clearing of Instagram\'s private cache via ColorOS Settings.\n\nFlow:\n1. Opens Instagram\'s App info screen.\n2. Navigates to Storage usage.\n3. Measures displayed cache size.\n4. Shows a final confirmation dialog before clearing.\n\nPersonal data, chats, logins, and photos will remain untouched.\n\nProceed?</string>
     <string name="pilot_step1_btn_proceed">START TEST</string>
@@ -123,8 +125,8 @@
     <string name="pilot_status_running">Pilot test in progress…</string>
     <string name="pilot_outcome_title">PILOT OUTCOME</string>
 
-    <!-- Phase 7: Dual-Tier Cache Cleaning UX -->
-    <string name="tier1_badge">TIER 1 • QUICK CLEAN (SHIZUKU)</string>
+    <!-- Dual-Tier Cache Cleaning UX -->
+    <string name="tier1_badge">TIER 1 • BULK TRIM (SHIZUKU)</string>
     <string name="tier1_title">Bulk Device Cache Trim</string>
     <string name="tier1_desc">Executes Android\'s system cache-trimming command (pm trim-caches 100G) via Shizuku shell. Immediately purges 95%+ of purgeable caches across all system, Google, and user apps without UI navigation.</string>
     <string name="btn_quick_clean_all">QUICK CLEAN ALL</string>
@@ -132,6 +134,27 @@
     <string name="quick_clean_dialog_msg">This executes Android\'s system cache-trimming command (pm trim-caches 100G) via Shizuku shell.\n\nScope &amp; Guarantees:\n• Bulk trims system, Google, and third-party app caches across the entire device down to the system floor (~95%+ reduction).\n• Runs instantly in the background without UI navigation.\n• Free storage measured before and after via StatFs.\n• User accounts, logins, photos, and databases are strictly protected.\n\nNote: Android retains minimal runtime caches (~50–400 KB per app). To zero residual cache for specific apps, use Tier 2 Deep Clean below.\n\nProceed?</string>
     <string name="tier2_badge">TIER 2 • DEEP CLEAN (ACCESSIBILITY)</string>
     <string name="tier2_title">Guarded Multi-App Cache Cleaner</string>
-    <string name="tier2_desc">Discovers all installed third-party apps on this phone. Cleans private internal app caches (/data/user/0/.../cache) sequentially using guarded Settings automation with dual identity verification.</string>
-    <string name="btn_open_app_cleaner">OPEN APP CLEANER (ALL APPS)</string>
+    <string name="tier2_desc">Discovers all installed user, Google, and preinstalled apps on this device. Cleans private internal app caches (/data/user/0/.../cache) sequentially using guarded Settings automation with dual identity verification.</string>
+    <string name="btn_open_app_cleaner">OPEN APP CLEANER (207 APPS)</string>
+
+    <!-- PART 1: Power Menu Feature -->
+    <string name="power_menu_title">Power Menu</string>
+    <string name="power_menu_desc">Open Android\'s power options without the physical power button.</string>
+    <string name="power_menu_notice">Opens the native system power dialog (shut down, restart, emergency). The app does not shut down or reboot the phone directly.</string>
+    <string name="btn_power_menu">OPEN POWER MENU</string>
+    <string name="power_menu_a11y_required">Accessibility Service is required to trigger the system power dialog.</string>
+    <string name="power_menu_a11y_disconnected">Accessibility Service is enabled in Settings but currently disconnected.</string>
+    <string name="btn_enable_a11y">ENABLE IN ACCESSIBILITY SETTINGS</string>
+    <string name="btn_retry_a11y">RETRY CONNECTION</string>
+    <string name="power_menu_opened">System power dialog opened.</string>
+    <string name="power_menu_cleaning_busy">Cannot open power dialog: Cache cleaning batch in progress.</string>
+    <string name="power_menu_failed">System rejected power dialog request. Please check Accessibility settings.</string>
+
+    <!-- Cleaning Results & History -->
+    <string name="history_title">Cleaning History</string>
+    <string name="history_subtitle">RMX Device Hub • Measured Storage Logs</string>
+    <string name="btn_view_history">View Full Cleaning History</string>
+    <string name="dialog_clear_history_title">Clear Cleaning History?</string>
+    <string name="empty_history_title">No Cleaning History Yet</string>
+    <string name="empty_history_desc">Runs from Quick Clean All and Guarded Deep Clean will be recorded here with measured storage changes.</string>
 </resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Center vertical bar -->
+    <path
+        android:fillColor="@color/accent_primary"
+        android:pathData="M11,3 L13,3 L13,12 L11,12 Z" />
+    <!-- Open circular ring -->
+    <path
+        android:fillColor="@color/accent_primary"
+        android:pathData="M16.59,6.58 L18.01,5.16 C20.45,7.6 22,10.63 22,14 C22,19.52 17.52,24 12,24 C6.48,24 2,19.52 2,14 C2,10.63 3.55,7.6 5.99,5.16 L7.41,6.58 C5.34,8.65 4,11.17 4,14 C4,18.42 7.58,22 12,22 C16.42,22 20,18.42 20,14 C20,11.17 18.66,8.65 16.59,6.58 Z" />
+</vector>

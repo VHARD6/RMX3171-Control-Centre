@@ -101,6 +101,10 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     // Authoritative package-based selection manager
     private final AppSelectionManager selectionManager = new AppSelectionManager();
 
+    // Measurement & History Tracking
+    private long batchStartTime = 0;
+    private long batchStorageBefore = -1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -547,6 +551,8 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
 
     private void startBatchCleaning(List<TargetApp> selectedApps) {
         isCleaningInProgress = true;
+        batchStartTime = System.currentTimeMillis();
+        batchStorageBefore = StorageMeasurementUtil.getAvailableStorageBytes();
         setSelectionControlsEnabled(false);
         btnCleanSelected.setEnabled(false);
         btnCancelBatch.setVisibility(View.VISIBLE);
@@ -726,6 +732,46 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
 
     @Override
     public void onBatchFinished(final List<TargetApp> batchResults, final String summary) {
+        final long batchDurationMs = System.currentTimeMillis() - batchStartTime;
+        final long batchStorageAfter = StorageMeasurementUtil.getAvailableStorageBytes();
+
+        int cleared = 0, alreadyClean = 0, failed = 0, cancelled = 0;
+        if (batchResults != null) {
+            for (TargetApp app : batchResults) {
+                if (app.getStatus() == TargetApp.Status.CLEARED) cleared++;
+                else if (app.getStatus() == TargetApp.Status.ALREADY_CLEAN) alreadyClean++;
+                else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
+                else if (app.getStatus() == TargetApp.Status.CANCELLED || app.getStatus() == TargetApp.Status.SKIPPED) cancelled++;
+            }
+        }
+
+        final CleaningHistoryRecord.Outcome outcome =
+                CleaningHistoryRecord.evaluateBatchOutcome(summary, cleared, alreadyClean, failed, cancelled);
+
+        final StorageMeasurementUtil.StorageMeasurement measurement =
+                StorageMeasurementUtil.calculateMeasurement(batchStorageBefore, batchStorageAfter);
+
+        final String honestSummary;
+        if (measurement.isValid) {
+            honestSummary = summary + "\n\n" + measurement.getDescription();
+        } else {
+            honestSummary = summary;
+        }
+
+        CleaningHistoryRecord record = CleaningHistoryRecord.createDeepClean(
+                outcome,
+                batchDurationMs,
+                batchStorageBefore,
+                batchStorageAfter,
+                (batchResults != null ? batchResults.size() : 0),
+                cleared,
+                alreadyClean,
+                failed,
+                cancelled,
+                summary
+        );
+        CleaningHistoryRepository.getInstance(AppSelectionActivity.this).addRecord(record);
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -735,16 +781,21 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 llBatchProgress.setVisibility(View.GONE);
                 updateSelectionSummary();
 
-                for (TargetApp app : batchResults) {
-                    adapter.updateApp(app);
+                if (batchResults != null) {
+                    for (TargetApp app : batchResults) {
+                        adapter.updateApp(app);
+                    }
                 }
 
                 llBatchSummary.setVisibility(View.VISIBLE);
 
-                if (summary.startsWith("Batch cancelled")) {
+                if (outcome == CleaningHistoryRecord.Outcome.CANCELLED) {
                     tvBatchSummaryTitle.setText("BATCH CANCELLED");
                     tvBatchSummaryTitle.setTextColor(getColor(android.R.color.holo_orange_light));
-                } else if (summary.startsWith("Batch stopped") || summary.startsWith("Batch finished with partial issues")) {
+                } else if (outcome == CleaningHistoryRecord.Outcome.FAILED) {
+                    tvBatchSummaryTitle.setText("BATCH FAILED");
+                    tvBatchSummaryTitle.setTextColor(getColor(android.R.color.holo_red_light));
+                } else if (outcome == CleaningHistoryRecord.Outcome.PARTIAL) {
                     tvBatchSummaryTitle.setText("BATCH STOPPED (PARTIAL)");
                     tvBatchSummaryTitle.setTextColor(getColor(android.R.color.holo_red_light));
                 } else {
@@ -752,7 +803,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                     tvBatchSummaryTitle.setTextColor(getColor(R.color.accent_badge));
                 }
 
-                tvBatchSummaryText.setText(summary);
+                tvBatchSummaryText.setText(honestSummary);
 
                 if (needsRefreshAfterBatch) {
                     needsRefreshAfterBatch = false;

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Clean History clock/counter-clockwise vector icon -->
+    <path
+        android:fillColor="@color/text_primary"
+        android:pathData="M13,3 A9,9 0 0,0 4,12 L1,12 L4.89,15.89 L8.78,12 L5.82,12 A7.18,7.18 0 1,1 13,20.18 A7.2,7.2 0 0,1 6.54,16.27 L5,17.47 A9,9 0 1,0 13,3 Z M12,7 L12,13 L17,16 L17.75,14.75 L13.5,12.25 L13.5,7 Z" />
+</vector>

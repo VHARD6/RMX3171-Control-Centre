@@ -32,7 +32,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Multi-App Cache Cleaner"
+                android:text="Installed Apps Inventory"
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:textStyle="bold" />
@@ -40,7 +40,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Phase 7 • All-Apps Dynamic Discovery"
+                android:text="RMX Device Hub • Guarded Deep Clean"
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
 
