@@ -155,6 +155,17 @@
     <string name="history_subtitle">RMX Device Hub • Measured Storage Logs</string>
     <string name="btn_view_history">View Full Cleaning History</string>
     <string name="dialog_clear_history_title">Clear Cleaning History?</string>
-    <string name="empty_history_title">No Cleaning History Yet</string>
-    <string name="empty_history_desc">Runs from Quick Clean All and Guarded Deep Clean will be recorded here with measured storage changes.</string>
+    <!-- Edge Volume Control Feature -->
+    <string name="edge_volume_title">Edge Volume Control</string>
+    <string name="edge_volume_desc">Pull out from the right screen edge to adjust volume without physical buttons.</string>
+    <string name="edge_volume_notice">Provides a near-transparent edge handle and floating volume sliders for Media, Ring, and Alarm over other applications.</string>
+    <string name="edge_volume_permission_required">Overlay permission (Display over other apps) is required to show the edge volume control.</string>
+    <string name="btn_enable_edge_volume">ENABLE EDGE VOLUME</string>
+    <string name="btn_disable_edge_volume">DISABLE EDGE VOLUME</string>
+    <string name="btn_grant_overlay_permission">GRANT OVERLAY PERMISSION</string>
+    <string name="btn_reset_edge_position">RESET HANDLE POSITION</string>
+    <string name="btn_stop_edge_volume_immediate">STOP IMMEDIATELY</string>
+    <string name="edge_volume_opacity_label">Handle Idle Opacity</string>
+    <string name="edge_volume_dialog_perm_title">Overlay Permission Needed</string>
+    <string name="edge_volume_dialog_perm_msg">To provide an accessible on-screen volume control over other apps and games, RMX Device Hub requires the "Display over other apps" permission.\n\nPlease enable the permission in the next screen.</string>
 </resources>

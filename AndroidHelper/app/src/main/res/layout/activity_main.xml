@@ -239,6 +239,215 @@
 
         </LinearLayout>
 
+        <!-- CARD: EDGE VOLUME CONTROL -->
+        <LinearLayout
+            android:id="@+id/card_edge_volume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Card Header: Title & Status Badge -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="10dp">
+
+                <ImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/ic_volume_media"
+                    android:tint="@color/accent_primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/edge_volume_title"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/edge_volume_desc"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_edge_volume_status_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@color/bg_card_secondary"
+                    android:paddingStart="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="3dp"
+                    android:letterSpacing="0.04"
+                    android:text="STOPPED"
+                    android:textColor="@color/text_muted"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:lineSpacingExtra="2dp"
+                android:text="@string/edge_volume_notice"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp" />
+
+            <!-- Permission Warning Container -->
+            <LinearLayout
+                android:id="@+id/ll_edge_volume_perm_warning"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:background="@color/bg_card_secondary"
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="2dp"
+                    android:text="@string/edge_volume_permission_required"
+                    android:textColor="@color/status_warning"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btn_grant_overlay_perm"
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/btn_secondary_background"
+                    android:elevation="0dp"
+                    android:stateListAnimator="@null"
+                    android:text="@string/btn_grant_overlay_permission"
+                    android:textAllCaps="false"
+                    android:textColor="@color/accent_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Main Toggle Button -->
+            <Button
+                android:id="@+id/btn_toggle_edge_volume"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/btn_primary_background"
+                android:elevation="0dp"
+                android:letterSpacing="0.04"
+                android:stateListAnimator="@null"
+                android:text="@string/btn_enable_edge_volume"
+                android:textAllCaps="false"
+                android:textColor="@color/btn_primary_text"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <!-- Quick Settings Container (Shown when enabled) -->
+            <LinearLayout
+                android:id="@+id/ll_edge_volume_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <!-- Opacity Selector Row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/edge_volume_opacity_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/tv_opacity_value_display"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="15%"
+                        android:textColor="@color/accent_primary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seek_handle_opacity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="40"
+                    android:progress="15"
+                    android:maxHeight="6dp"
+                    android:minHeight="6dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:progressDrawable="@drawable/seek_progress_drawable"
+                    android:splitTrack="false"
+                    android:thumb="@drawable/seek_thumb"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Action Buttons: Reset Position & Stop Immediately -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_reset_edge_position"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/btn_secondary_background"
+                        android:elevation="0dp"
+                        android:stateListAnimator="@null"
+                        android:text="@string/btn_reset_edge_position"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_stop_edge_volume_immediate"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/btn_secondary_background"
+                        android:elevation="0dp"
+                        android:stateListAnimator="@null"
+                        android:text="@string/btn_stop_edge_volume_immediate"
+                        android:textAllCaps="false"
+                        android:textColor="@color/status_error"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <!-- ================================================================= -->
         <!-- SECTION 2: STORAGE & CACHE MAINTENANCE                            -->
         <!-- ================================================================= -->

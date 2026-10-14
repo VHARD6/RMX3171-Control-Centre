@@ -12,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -46,6 +47,17 @@ public class MainActivity extends Activity {
     private LinearLayout llPowerA11yWarning;
     private TextView tvPowerA11yWarning;
     private Button btnPowerEnableA11y;
+
+    // Edge Volume Views
+    private TextView tvEdgeVolumeStatusBadge;
+    private LinearLayout llEdgeVolumePermWarning;
+    private Button btnGrantOverlayPerm;
+    private Button btnToggleEdgeVolume;
+    private LinearLayout llEdgeVolumeSettings;
+    private TextView tvOpacityValueDisplay;
+    private SeekBar seekHandleOpacity;
+    private Button btnResetEdgePosition;
+    private Button btnStopEdgeVolumeImmediate;
 
     // Primary Control 2: Tier 1 Quick Clean Views
     private TextView tvQuickShizukuStatus;
@@ -166,6 +178,17 @@ public class MainActivity extends Activity {
         tvPowerA11yWarning = findViewById(R.id.tv_power_a11y_warning);
         btnPowerEnableA11y = findViewById(R.id.btn_power_enable_a11y);
 
+        // Edge Volume Views
+        tvEdgeVolumeStatusBadge = findViewById(R.id.tv_edge_volume_status_badge);
+        llEdgeVolumePermWarning = findViewById(R.id.ll_edge_volume_perm_warning);
+        btnGrantOverlayPerm = findViewById(R.id.btn_grant_overlay_perm);
+        btnToggleEdgeVolume = findViewById(R.id.btn_toggle_edge_volume);
+        llEdgeVolumeSettings = findViewById(R.id.ll_edge_volume_settings);
+        tvOpacityValueDisplay = findViewById(R.id.tv_opacity_value_display);
+        seekHandleOpacity = findViewById(R.id.seek_handle_opacity);
+        btnResetEdgePosition = findViewById(R.id.btn_reset_edge_position);
+        btnStopEdgeVolumeImmediate = findViewById(R.id.btn_stop_edge_volume_immediate);
+
         // Tier 1 Views
         tvQuickShizukuStatus = findViewById(R.id.tv_quick_shizuku_status);
         btnQuickShizukuAction = findViewById(R.id.btn_quick_shizuku_action);
@@ -220,6 +243,71 @@ public class MainActivity extends Activity {
                 PowerMenuController.openAccessibilitySettings(MainActivity.this);
             }
         });
+
+        // Edge Volume Listeners
+        if (btnGrantOverlayPerm != null) {
+            btnGrantOverlayPerm.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    requestOverlayPermission();
+                }
+            });
+        }
+
+        if (btnToggleEdgeVolume != null) {
+            btnToggleEdgeVolume.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    handleEdgeVolumeToggle();
+                }
+            });
+        }
+
+        if (seekHandleOpacity != null) {
+            seekHandleOpacity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser) {
+                        int clamped = Math.max(8, Math.min(50, progress));
+                        float opacity = clamped / 100.0f;
+                        EdgeVolumePreferences.setHandleOpacity(MainActivity.this, opacity);
+                        if (tvOpacityValueDisplay != null) {
+                            tvOpacityValueDisplay.setText(clamped + "%");
+                        }
+                        EdgeVolumeService.updateOpacity(MainActivity.this);
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {}
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+
+        if (btnResetEdgePosition != null) {
+            btnResetEdgePosition.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    EdgeVolumePreferences.resetPosition(MainActivity.this);
+                    EdgeVolumeService.resetPosition(MainActivity.this);
+                    Toast.makeText(MainActivity.this, "Handle position reset to middle.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        if (btnStopEdgeVolumeImmediate != null) {
+            btnStopEdgeVolumeImmediate.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    EdgeVolumePreferences.setEnabled(MainActivity.this, false);
+                    EdgeVolumeService.stop(MainActivity.this);
+                    updateEdgeVolumeUi();
+                    Toast.makeText(MainActivity.this, "Edge Volume Control stopped.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
 
         // Tier 1: Quick Clean Action Button
         btnQuickCleanAll.setOnClickListener(new View.OnClickListener() {
@@ -304,8 +392,127 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         updateUiState();
+        updateEdgeVolumeUi();
         updateHistorySection();
         handlePilotIntent(getIntent());
+
+        if (EdgeVolumePreferences.isEnabled(this) && Settings.canDrawOverlays(this) && !EdgeVolumeService.isServiceRunning()) {
+            EdgeVolumeService.start(this);
+            updateEdgeVolumeUi();
+        }
+    }
+
+    // =========================================================================
+    // Edge Volume Control Methods
+    // =========================================================================
+
+    private void requestOverlayPermission() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Throwable t) {
+            Toast.makeText(this, "Could not open overlay settings: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void handleEdgeVolumeToggle() {
+        boolean isRunning = EdgeVolumeService.isServiceRunning();
+        boolean isPrefEnabled = EdgeVolumePreferences.isEnabled(this);
+
+        if (isRunning || isPrefEnabled) {
+            EdgeVolumePreferences.setEnabled(this, false);
+            EdgeVolumeService.stop(this);
+            updateEdgeVolumeUi();
+            if (btnToggleEdgeVolume != null) {
+                btnToggleEdgeVolume.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateEdgeVolumeUi();
+                    }
+                }, 150);
+            }
+            Toast.makeText(this, "Edge Volume Control disabled.", Toast.LENGTH_SHORT).show();
+        } else {
+            if (!Settings.canDrawOverlays(this)) {
+                showOverlayPermissionRequiredDialog();
+            } else {
+                EdgeVolumePreferences.setEnabled(this, true);
+                EdgeVolumeService.start(this);
+                updateEdgeVolumeUi();
+                if (btnToggleEdgeVolume != null) {
+                    btnToggleEdgeVolume.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            updateEdgeVolumeUi();
+                        }
+                    }, 200);
+                }
+                Toast.makeText(this, "Edge Volume Control enabled. Pull handle from right edge.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void showOverlayPermissionRequiredDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.edge_volume_dialog_perm_title)
+                .setMessage(R.string.edge_volume_dialog_perm_msg)
+                .setPositiveButton("Open Settings", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        requestOverlayPermission();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void updateEdgeVolumeUi() {
+        boolean hasOverlayPerm = Settings.canDrawOverlays(this);
+        boolean isRunning = EdgeVolumeService.isServiceRunning();
+        boolean isPrefEnabled = EdgeVolumePreferences.isEnabled(this);
+
+        if (llEdgeVolumePermWarning != null) {
+            llEdgeVolumePermWarning.setVisibility(hasOverlayPerm ? View.GONE : View.VISIBLE);
+        }
+
+        if (tvEdgeVolumeStatusBadge != null) {
+            if (isRunning) {
+                tvEdgeVolumeStatusBadge.setText("ACTIVE");
+                tvEdgeVolumeStatusBadge.setTextColor(getColor(R.color.accent_badge));
+            } else if (isPrefEnabled && !hasOverlayPerm) {
+                tvEdgeVolumeStatusBadge.setText("PERM REQUIRED");
+                tvEdgeVolumeStatusBadge.setTextColor(getColor(R.color.status_warning));
+            } else {
+                tvEdgeVolumeStatusBadge.setText("STOPPED");
+                tvEdgeVolumeStatusBadge.setTextColor(getColor(R.color.text_muted));
+            }
+        }
+
+        if (btnToggleEdgeVolume != null) {
+            if (isRunning) {
+                btnToggleEdgeVolume.setText(R.string.btn_disable_edge_volume);
+                btnToggleEdgeVolume.setBackgroundResource(R.drawable.btn_secondary_background);
+                btnToggleEdgeVolume.setTextColor(getColor(R.color.text_primary));
+            } else {
+                btnToggleEdgeVolume.setText(R.string.btn_enable_edge_volume);
+                btnToggleEdgeVolume.setBackgroundResource(R.drawable.btn_primary_background);
+                btnToggleEdgeVolume.setTextColor(getColor(R.color.btn_primary_text));
+            }
+        }
+
+        if (llEdgeVolumeSettings != null) {
+            llEdgeVolumeSettings.setVisibility(isRunning ? View.VISIBLE : View.GONE);
+        }
+
+        if (seekHandleOpacity != null) {
+            int opacityPct = Math.round(EdgeVolumePreferences.getHandleOpacity(this) * 100);
+            seekHandleOpacity.setProgress(opacityPct);
+            if (tvOpacityValueDisplay != null) {
+                tvOpacityValueDisplay.setText(opacityPct + "%");
+            }
+        }
     }
 
     @Override
