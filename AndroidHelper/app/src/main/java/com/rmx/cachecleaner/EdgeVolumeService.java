@@ -5,10 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Build;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -16,14 +14,14 @@ import android.util.Log;
 import android.view.WindowManager;
 
 /**
- * Foreground Service hosting the near-transparent Edge Volume Control overlay.
+ * Lightweight Foreground Service hosting the Edge Volume Control handle.
  *
  * Enforces:
- * 1. Android 11 foreground service requirements with a minimal, honest low-importance notification.
+ * 1. Minimal low-importance foreground notification (Android 11 requirement).
  * 2. Strict permission verification (Settings.canDrawOverlays) before window attachment.
- * 3. Immediate window removal and receiver teardown on service destruction to prevent leaks.
- * 4. Intent actions for starting, stopping, updating opacity, and resetting handle position.
- * 5. Listening to system volume broadcasts (android.media.VOLUME_CHANGED_ACTION) for live synchronization.
+ * 3. Fixed compact overlay window with zero ViewGroups and zero XML layouts.
+ * 4. Zero broadcast receivers or background polling loops.
+ * 5. Clean teardown and window detachment on service destruction.
  */
 public class EdgeVolumeService extends Service {
 
@@ -41,8 +39,6 @@ public class EdgeVolumeService extends Service {
 
     private WindowManager windowManager;
     private EdgeVolumeOverlayView overlayView;
-    private EdgeVolumeController volumeController;
-    private BroadcastReceiver volumeBroadcastReceiver;
 
     public static boolean isServiceRunning() {
         return isRunning;
@@ -97,19 +93,15 @@ public class EdgeVolumeService extends Service {
         }
 
         windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        volumeController = new EdgeVolumeController(this);
-        overlayView = new EdgeVolumeOverlayView(this, windowManager, volumeController);
+        overlayView = new EdgeVolumeOverlayView(this, windowManager);
 
         try {
-            windowManager.addView(overlayView, overlayView.createCollapsedLayoutParams());
+            windowManager.addView(overlayView, overlayView.getWindowParams());
             isRunning = true;
         } catch (Throwable t) {
             Log.e(TAG, "Failed to attach overlay window: " + t.getMessage(), t);
             stopSelf();
-            return;
         }
-
-        registerVolumeChangeReceiver();
     }
 
     @Override
@@ -127,31 +119,11 @@ public class EdgeVolumeService extends Service {
                 }
             } else if (ACTION_UPDATE_OPACITY.equals(action)) {
                 if (overlayView != null) {
-                    overlayView.updatePillOpacity();
+                    overlayView.updateOpacity();
                 }
             }
         }
         return START_STICKY;
-    }
-
-    private void registerVolumeChangeReceiver() {
-        volumeBroadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if ("android.media.VOLUME_CHANGED_ACTION".equals(intent.getAction())) {
-                    if (overlayView != null) {
-                        overlayView.onExternalVolumeChanged();
-                    }
-                }
-            }
-        };
-
-        try {
-            IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
-            registerReceiver(volumeBroadcastReceiver, filter);
-        } catch (Throwable t) {
-            Log.w(TAG, "Could not register volume change receiver: " + t.getMessage());
-        }
     }
 
     private void createNotificationChannel() {
@@ -208,13 +180,6 @@ public class EdgeVolumeService extends Service {
         super.onDestroy();
         Log.i(TAG, "EdgeVolumeService onDestroy");
         isRunning = false;
-
-        if (volumeBroadcastReceiver != null) {
-            try {
-                unregisterReceiver(volumeBroadcastReceiver);
-            } catch (Throwable ignored) {}
-            volumeBroadcastReceiver = null;
-        }
 
         if (overlayView != null) {
             overlayView.cleanup();

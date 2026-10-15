@@ -9,8 +9,7 @@ import android.content.SharedPreferences;
  * Persists:
  * 1. Opt-in enabled state (default: false)
  * 2. Handle vertical position ratio (0.0 to 1.0, default: 0.5f)
- * 3. Handle idle opacity (0.10f to 0.50f, default: 0.15f)
- * 4. Last non-zero media volume for media mute/unmute restoration
+ * 3. Handle idle opacity (0.08f to 0.60f, default: 0.15f)
  */
 public class EdgeVolumePreferences {
 
@@ -19,7 +18,6 @@ public class EdgeVolumePreferences {
     public static final String KEY_ENABLED = "edge_volume_enabled";
     public static final String KEY_HANDLE_Y_RATIO = "handle_y_ratio";
     public static final String KEY_HANDLE_OPACITY = "handle_opacity";
-    public static final String KEY_LAST_MEDIA_VOLUME = "last_media_volume";
 
     public static final float DEFAULT_Y_RATIO = 0.50f;
     public static final float DEFAULT_OPACITY = 0.15f;
@@ -67,15 +65,5 @@ public class EdgeVolumePreferences {
         getPrefs(context).edit()
                 .putFloat(KEY_HANDLE_Y_RATIO, DEFAULT_Y_RATIO)
                 .apply();
-    }
-
-    public static int getLastMediaVolume(Context context, int defaultVolume) {
-        if (context == null) return defaultVolume;
-        return getPrefs(context).getInt(KEY_LAST_MEDIA_VOLUME, defaultVolume);
-    }
-
-    public static void setLastMediaVolume(Context context, int volume) {
-        if (context == null) return;
-        getPrefs(context).edit().putInt(KEY_LAST_MEDIA_VOLUME, volume).apply();
     }
 }

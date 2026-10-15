@@ -158,7 +158,7 @@
     <!-- Edge Volume Control Feature -->
     <string name="edge_volume_title">Edge Volume Control</string>
     <string name="edge_volume_desc">Pull out from the right screen edge to adjust volume without physical buttons.</string>
-    <string name="edge_volume_notice">Provides a near-transparent edge handle and floating volume sliders for Media, Ring, and Alarm over other applications.</string>
+    <string name="edge_volume_notice">Provides a near-transparent edge handle to open the native ColorOS volume slider over other applications.</string>
     <string name="edge_volume_permission_required">Overlay permission (Display over other apps) is required to show the edge volume control.</string>
     <string name="btn_enable_edge_volume">ENABLE EDGE VOLUME</string>
     <string name="btn_disable_edge_volume">DISABLE EDGE VOLUME</string>
