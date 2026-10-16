@@ -64,9 +64,17 @@
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
+        <!-- Minimal Persistent Controls Process IPC Provider -->
+        <provider
+            android:name=".ControlsProvider"
+            android:authorities="com.rmx.cachecleaner.controls"
+            android:process=":controls"
+            android:exported="false" />
+
         <!-- Phase 4: Diagnostic Accessibility Probe Service -->
         <service
             android:name=".SettingsInspectionAccessibilityService"
+            android:process=":controls"
             android:label="@string/accessibility_probe_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
@@ -81,6 +89,7 @@
         <!-- Edge Volume Control Overlay Service -->
         <service
             android:name=".EdgeVolumeService"
+            android:process=":controls"
             android:exported="false" />
 
     </application>

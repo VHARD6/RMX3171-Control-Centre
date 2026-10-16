@@ -35,6 +35,27 @@ public class PilotController {
     public static final String TARGET_PACKAGE = "com.instagram.android";
     public static final String SETTINGS_PACKAGE = "com.android.settings";
 
+    public static final String ACTION_PILOT_STATE_CHANGED = "com.rmx.cachecleaner.action.PILOT_STATE_CHANGED";
+    public static final String EXTRA_PILOT_STATE = "pilot_state";
+    public static final String EXTRA_PILOT_MESSAGE = "pilot_message";
+
+    public static final String ACTION_PILOT_FINISHED = "com.rmx.cachecleaner.action.PILOT_FINISHED";
+    public static final String EXTRA_OUTCOME = "outcome";
+    public static final String EXTRA_CACHE_BEFORE = "cache_before";
+    public static final String EXTRA_CACHE_AFTER = "cache_after";
+    public static final String EXTRA_SUMMARY = "summary";
+
+    public static final String ACTION_BATCH_PROGRESS = "com.rmx.cachecleaner.action.BATCH_PROGRESS";
+    public static final String EXTRA_BATCH_CURRENT = "batch_current";
+    public static final String EXTRA_BATCH_TOTAL = "batch_total";
+    public static final String EXTRA_PACKAGE_NAME = "package_name";
+
+    public static final String ACTION_BATCH_APP_FINISHED = "com.rmx.cachecleaner.action.BATCH_APP_FINISHED";
+    public static final String EXTRA_STATUS = "status";
+    public static final String EXTRA_STATUS_DETAIL = "status_detail";
+
+    public static final String ACTION_BATCH_FINISHED = "com.rmx.cachecleaner.action.BATCH_FINISHED";
+
     public enum State {
         IDLE,
         NAVIGATING_TO_STORAGE,
@@ -139,6 +160,7 @@ public class PilotController {
     private int batchIndex = 0;
     private BatchListener batchListener = null;
     private Context currentContext = null;
+    private String lastBatchSummary = null;
 
     // Explicit runnable handles for reliable cancellation
     private Runnable timeoutRunnable = null;
@@ -147,6 +169,14 @@ public class PilotController {
     private Runnable verificationRunnable = null;
 
     private PilotController() {}
+
+    public synchronized boolean isBatchRunning() {
+        return isBatchMode && currentState != State.IDLE && currentState != State.DONE;
+    }
+
+    public synchronized String getLastBatchSummary() {
+        return lastBatchSummary;
+    }
 
     public synchronized void setListener(PilotListener listener) {
         this.listener = listener;
@@ -280,7 +310,11 @@ public class PilotController {
         }
 
         // Validate all targets against predefined allowlist
+        PackageManager pm = (context != null) ? context.getPackageManager() : null;
         for (TargetApp app : targets) {
+            if (!SupportedAppsRegistry.isPackageAllowed(app.getPackageName()) && pm != null) {
+                SupportedAppsRegistry.registerIfEligible(pm, app.getPackageName());
+            }
             if (!SupportedAppsRegistry.isPackageAllowed(app.getPackageName())) {
                 String err = "Security violation: Package '" + app.getPackageName() + "' is not in the supported allowlist.";
                 log(err);
@@ -315,6 +349,87 @@ public class PilotController {
         log("Starting batch of " + batchQueue.size() + " targets.");
         processNextBatchItem();
         return true;
+    }
+
+    public synchronized boolean startBatchFromPackages(Context context, List<String> packageNames) {
+        if (packageNames == null || packageNames.isEmpty()) {
+            log("Cannot start batch: package list is empty.");
+            return false;
+        }
+
+        PackageManager pm = (context != null) ? context.getPackageManager() : null;
+        List<TargetApp> targets = new ArrayList<>();
+        for (String pkg : packageNames) {
+            if (pkg == null) continue;
+            if (!SupportedAppsRegistry.isPackageAllowed(pkg) && pm != null) {
+                SupportedAppsRegistry.registerIfEligible(pm, pkg);
+            }
+            if (SupportedAppsRegistry.isPackageAllowed(pkg)) {
+                String label = resolveTargetAppLabel(context, pkg);
+                targets.add(new TargetApp(pkg, label));
+            } else {
+                log("Package rejected by allowlist security guard: " + pkg);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            log("All packages rejected by allowlist.");
+            return false;
+        }
+
+        return startBatch(context, targets, null);
+    }
+
+    private void dispatchBatchAppFinished(TargetApp app, Outcome outcome) {
+        if (batchListener != null) {
+            batchListener.onAppFinished(app, outcome);
+        }
+        if (currentContext != null && app != null && outcome != null) {
+            try {
+                Intent intent = new Intent(ACTION_BATCH_APP_FINISHED);
+                intent.setPackage(currentContext.getPackageName());
+                intent.putExtra(EXTRA_PACKAGE_NAME, app.getPackageName());
+                intent.putExtra(EXTRA_OUTCOME, outcome.name());
+                intent.putExtra(EXTRA_CACHE_BEFORE, app.getCacheBefore());
+                intent.putExtra(EXTRA_CACHE_AFTER, app.getCacheAfter());
+                if (app.getStatus() != null) {
+                    intent.putExtra(EXTRA_STATUS, app.getStatus().name());
+                }
+                intent.putExtra(EXTRA_STATUS_DETAIL, app.getStatusDetail());
+                currentContext.sendBroadcast(intent);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private void dispatchBatchProgress(int current, int total, TargetApp app) {
+        if (batchListener != null) {
+            batchListener.onBatchProgress(current, total, app);
+        }
+        if (currentContext != null && app != null) {
+            try {
+                Intent intent = new Intent(ACTION_BATCH_PROGRESS);
+                intent.setPackage(currentContext.getPackageName());
+                intent.putExtra(EXTRA_BATCH_CURRENT, current);
+                intent.putExtra(EXTRA_BATCH_TOTAL, total);
+                intent.putExtra(EXTRA_PACKAGE_NAME, app.getPackageName());
+                currentContext.sendBroadcast(intent);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private void dispatchBatchFinished(List<TargetApp> queue, String summary) {
+        lastBatchSummary = summary;
+        if (batchListener != null) {
+            batchListener.onBatchFinished(queue, summary);
+        }
+        if (currentContext != null) {
+            try {
+                Intent intent = new Intent(ACTION_BATCH_FINISHED);
+                intent.setPackage(currentContext.getPackageName());
+                intent.putExtra(EXTRA_SUMMARY, summary);
+                currentContext.sendBroadcast(intent);
+            } catch (Throwable ignored) {}
+        }
     }
 
     /**
@@ -354,18 +469,14 @@ public class PilotController {
                 log("Could not bring AppSelectionActivity to front: " + e.getMessage());
             }
 
-            if (batchListener != null) {
-                batchListener.onBatchFinished(batchQueue, summary);
-            }
+            dispatchBatchFinished(batchQueue, summary);
             return;
         }
 
         TargetApp app = batchQueue.get(batchIndex);
         app.setStatus(TargetApp.Status.CLEANING);
         app.setStatusDetail("Starting navigation...");
-        if (batchListener != null) {
-            batchListener.onBatchProgress(batchIndex, batchQueue.size(), app);
-        }
+        dispatchBatchProgress(batchIndex, batchQueue.size(), app);
 
         cancelAllCallbacks();
         activeSessionToken++;
@@ -411,9 +522,7 @@ public class PilotController {
             TargetApp activeApp = batchQueue.get(batchIndex);
             activeApp.setStatus(TargetApp.Status.CANCELLED);
             activeApp.setStatusDetail("Cancelled: " + reason);
-            if (batchListener != null) {
-                batchListener.onAppFinished(activeApp, Outcome.CANCELLED);
-            }
+            dispatchBatchAppFinished(activeApp, Outcome.CANCELLED);
         }
         for (int i = batchIndex + 1; i < batchQueue.size(); i++) {
             TargetApp app = batchQueue.get(i);
@@ -447,9 +556,7 @@ public class PilotController {
             log("Could not bring AppSelectionActivity to front: " + e.getMessage());
         }
 
-        if (batchListener != null) {
-            batchListener.onBatchFinished(batchQueue, summary);
-        }
+        dispatchBatchFinished(batchQueue, summary);
     }
 
     /**
@@ -546,9 +653,7 @@ public class PilotController {
                 app.setStatus(TargetApp.Status.FAILED);
                 app.setStatusDetail("Failed: " + reason);
                 log("Batch item failed: " + app.getPackageName() + " -> " + reason);
-                if (batchListener != null) {
-                    batchListener.onAppFinished(app, Outcome.FAILED);
-                }
+                dispatchBatchAppFinished(app, Outcome.FAILED);
             }
             batchIndex++;
             postDelayed(new Runnable() {
@@ -580,9 +685,7 @@ public class PilotController {
                 TargetApp app = batchQueue.get(batchIndex);
                 app.setStatus(TargetApp.Status.FAILED);
                 app.setStatusDetail("Failed: " + reason);
-                if (batchListener != null) {
-                    batchListener.onAppFinished(app, Outcome.FAILED);
-                }
+                dispatchBatchAppFinished(app, Outcome.FAILED);
             }
             for (int i = batchIndex + 1; i < batchQueue.size(); i++) {
                 TargetApp app = batchQueue.get(i);
@@ -613,9 +716,7 @@ public class PilotController {
             } catch (Exception e) {
                 log("Could not bring AppSelectionActivity to front: " + e.getMessage());
             }
-            if (batchListener != null) {
-                batchListener.onBatchFinished(batchQueue, summary);
-            }
+            dispatchBatchFinished(batchQueue, summary);
             return;
         }
 
@@ -866,9 +967,7 @@ public class PilotController {
                     app.setCacheAfter(observedCache);
                     app.setStatusDetail("Button disabled by system (" + observedCache + ")");
                     log("Clear cache button disabled by system for " + targetAppLabel + " (" + observedCache + "). Concluding already clean in batch mode.");
-                    if (batchListener != null) {
-                        batchListener.onAppFinished(app, Outcome.ALREADY_CLEAN);
-                    }
+                    dispatchBatchAppFinished(app, Outcome.ALREADY_CLEAN);
                     batchIndex++;
                     postDelayed(new Runnable() {
                         @Override
@@ -924,9 +1023,7 @@ public class PilotController {
             app.setCacheAfter(zeroCache);
             String time = new java.text.SimpleDateFormat("HH:mm:ss", Locale.US).format(new java.util.Date());
             app.setStatusDetail("Already clean (" + zeroCache + ") • Verified live at " + time);
-            if (batchListener != null) {
-                batchListener.onAppFinished(app, Outcome.ALREADY_CLEAN);
-            }
+            dispatchBatchAppFinished(app, Outcome.ALREADY_CLEAN);
             batchIndex++;
             postDelayed(new Runnable() {
                 @Override
@@ -1077,15 +1174,11 @@ public class PilotController {
             if (verified) {
                 app.setStatus(TargetApp.Status.CLEARED);
                 app.setStatusDetail("Cleared: " + before + " -> " + currentResult.cacheAfter + " • Verified live at " + time);
-                if (batchListener != null) {
-                    batchListener.onAppFinished(app, Outcome.SETTINGS_UI_CONFIRMED);
-                }
+                dispatchBatchAppFinished(app, Outcome.SETTINGS_UI_CONFIRMED);
             } else {
                 app.setStatus(TargetApp.Status.FAILED);
                 app.setStatusDetail("Unverified (After: " + currentResult.cacheAfter + ") • " + time);
-                if (batchListener != null) {
-                    batchListener.onAppFinished(app, Outcome.ACTION_ATTEMPTED_UNVERIFIED);
-                }
+                dispatchBatchAppFinished(app, Outcome.ACTION_ATTEMPTED_UNVERIFIED);
             }
             batchIndex++;
             postDelayed(new Runnable() {
@@ -1294,6 +1387,15 @@ public class PilotController {
                 }
             });
         }
+        if (currentContext != null) {
+            try {
+                Intent bIntent = new Intent(ACTION_PILOT_STATE_CHANGED);
+                bIntent.setPackage(currentContext.getPackageName());
+                bIntent.putExtra(EXTRA_PILOT_STATE, newState.name());
+                bIntent.putExtra(EXTRA_PILOT_MESSAGE, message);
+                currentContext.sendBroadcast(bIntent);
+            } catch (Throwable ignored) {}
+        }
     }
 
     private void notifyFinished() {
@@ -1304,6 +1406,17 @@ public class PilotController {
                     if (listener != null) listener.onPilotFinished(currentResult);
                 }
             });
+        }
+        if (currentContext != null) {
+            try {
+                Intent bIntent = new Intent(ACTION_PILOT_FINISHED);
+                bIntent.setPackage(currentContext.getPackageName());
+                bIntent.putExtra(EXTRA_OUTCOME, currentResult.outcome.name());
+                bIntent.putExtra(EXTRA_CACHE_BEFORE, currentResult.cacheBefore);
+                bIntent.putExtra(EXTRA_CACHE_AFTER, currentResult.cacheAfter);
+                bIntent.putExtra(EXTRA_SUMMARY, currentResult.summaryMessage);
+                currentContext.sendBroadcast(bIntent);
+            } catch (Throwable ignored) {}
         }
     }
 

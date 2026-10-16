@@ -98,6 +98,10 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     private boolean isReceiverRegistered = false;
     private boolean needsRefreshAfterBatch = false;
 
+    // Cross-process batch IPC receiver
+    private BroadcastReceiver batchReceiver;
+    private boolean isBatchReceiverRegistered = false;
+
     // Authoritative package-based selection manager
     private final AppSelectionManager selectionManager = new AppSelectionManager();
 
@@ -113,6 +117,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         PilotController.getInstance().setListener(this);
         initViews();
         loadSupportedApps();
+        registerBatchReceiver();
     }
 
     @Override
@@ -131,6 +136,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     protected void onDestroy() {
         super.onDestroy();
         unregisterPackageReceiver();
+        unregisterBatchReceiver();
         PilotController.getInstance().setListener(null);
     }
 
@@ -270,7 +276,10 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         btnCancelBatch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                PilotController.getInstance().cancelBatch("User cancelled via UI button");
+                if (SettingsInspectionAccessibilityService.isServiceRunning()) {
+                    PilotController.getInstance().cancelBatch("User cancelled via UI button");
+                }
+                ControlsClient.cancelBatch(AppSelectionActivity.this, "User cancelled via UI button");
             }
         });
 
@@ -278,7 +287,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
     }
 
     private void updateAccessibilityStatusBanner() {
-        boolean running = SettingsInspectionAccessibilityService.isServiceRunning();
+        boolean running = ControlsClient.isA11yConnected(this);
         if (tvA11yStatusBadge == null || tvA11yStatusDesc == null || btnOpenA11ySettings == null) return;
 
         if (running) {
@@ -302,86 +311,98 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
      * Dynamically queries PackageManager to refresh installed apps.
      * Preserves active user selection by package name for persisting apps and keeps newly discovered apps unselected.
      */
-    private void refreshAppInventory(boolean notifyUser) {
+    private void refreshAppInventory(final boolean notifyUser) {
         if (isCleaningInProgress) {
             needsRefreshAfterBatch = true;
             return;
         }
 
-        PackageManager pm = getPackageManager();
-        List<TargetApp> freshApps = SupportedAppsRegistry.getInstalledEligibleApps(pm);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                PackageManager pm = getPackageManager();
+                final List<TargetApp> freshApps = SupportedAppsRegistry.getInstalledEligibleApps(pm);
 
-        // Track previous execution statuses
-        Map<String, TargetApp.Status> prevStatuses = new HashMap<>();
-        Map<String, String> prevDetails = new HashMap<>();
-        Map<String, String> prevCacheBefore = new HashMap<>();
-        Map<String, String> prevCacheAfter = new HashMap<>();
+                // Track previous execution statuses
+                Map<String, TargetApp.Status> prevStatuses = new HashMap<>();
+                Map<String, String> prevDetails = new HashMap<>();
+                Map<String, String> prevCacheBefore = new HashMap<>();
+                Map<String, String> prevCacheAfter = new HashMap<>();
 
-        if (targetApps != null) {
-            for (TargetApp oldApp : targetApps) {
-                String pkg = oldApp.getPackageName();
-                prevStatuses.put(pkg, oldApp.getStatus());
-                prevDetails.put(pkg, oldApp.getStatusDetail());
-                prevCacheBefore.put(pkg, oldApp.getCacheBefore());
-                prevCacheAfter.put(pkg, oldApp.getCacheAfter());
-            }
-        }
-
-        int newAppsCount = 0;
-        if (!selectionManager.isInitialized()) {
-            // First initialization: all selectable eligible apps start selected by default
-            selectionManager.initializeDefaultSelection(freshApps);
-        } else {
-            // Subsequent runs: preserve exact selection by package name
-            for (TargetApp freshApp : freshApps) {
-                String pkg = freshApp.getPackageName();
-                if (freshApp.isProtected()) {
-                    selectionManager.setSelected(pkg, false, true);
-                    freshApp.setSelected(false);
-                } else if (selectionManager.isSelected(pkg, false)) {
-                    // Previously selected installed app
-                    freshApp.setSelected(true);
-                } else if (prevStatuses.containsKey(pkg)) {
-                    // Previously known installed app that was unselected by user
-                    freshApp.setSelected(false);
-                } else {
-                    // Newly discovered app: default to unselected for batch safety
-                    newAppsCount++;
-                    selectionManager.setSelected(pkg, false, false);
-                    freshApp.setSelected(false);
-                    if (!freshApp.isProtected()) {
-                        freshApp.setStatus(TargetApp.Status.PENDING);
-                        freshApp.setStatusDetail("Newly installed • Ready for cleaning");
+                synchronized (AppSelectionActivity.this) {
+                    if (targetApps != null) {
+                        for (TargetApp oldApp : targetApps) {
+                            String pkg = oldApp.getPackageName();
+                            prevStatuses.put(pkg, oldApp.getStatus());
+                            prevDetails.put(pkg, oldApp.getStatusDetail());
+                            prevCacheBefore.put(pkg, oldApp.getCacheBefore());
+                            prevCacheAfter.put(pkg, oldApp.getCacheAfter());
+                        }
                     }
                 }
 
-                // Restore cleaning status if processed in this session
-                TargetApp.Status prevStatus = prevStatuses.get(pkg);
-                if (prevStatus != null && prevStatus != TargetApp.Status.PENDING) {
-                    freshApp.setStatus(prevStatus);
-                    freshApp.setStatusDetail(prevDetails.get(pkg));
-                    freshApp.setCacheBefore(prevCacheBefore.get(pkg));
-                    freshApp.setCacheAfter(prevCacheAfter.get(pkg));
+                int newAppsCount = 0;
+                synchronized (selectionManager) {
+                    if (!selectionManager.isInitialized()) {
+                        // First initialization: all selectable eligible apps start selected by default
+                        selectionManager.initializeDefaultSelection(freshApps);
+                    } else {
+                        // Subsequent runs: preserve exact selection by package name
+                        for (TargetApp freshApp : freshApps) {
+                            String pkg = freshApp.getPackageName();
+                            if (freshApp.isProtected()) {
+                                selectionManager.setSelected(pkg, false, true);
+                                freshApp.setSelected(false);
+                            } else if (selectionManager.isSelected(pkg, false)) {
+                                freshApp.setSelected(true);
+                            } else if (prevStatuses.containsKey(pkg)) {
+                                freshApp.setSelected(false);
+                            } else {
+                                newAppsCount++;
+                                selectionManager.setSelected(pkg, false, false);
+                                freshApp.setSelected(false);
+                                if (!freshApp.isProtected()) {
+                                    freshApp.setStatus(TargetApp.Status.PENDING);
+                                    freshApp.setStatusDetail("Newly installed • Ready for cleaning");
+                                }
+                            }
+
+                            // Restore cleaning status if processed in this session
+                            TargetApp.Status prevStatus = prevStatuses.get(pkg);
+                            if (prevStatus != null && prevStatus != TargetApp.Status.PENDING) {
+                                freshApp.setStatus(prevStatus);
+                                freshApp.setStatusDetail(prevDetails.get(pkg));
+                                freshApp.setCacheBefore(prevCacheBefore.get(pkg));
+                                freshApp.setCacheAfter(prevCacheAfter.get(pkg));
+                            }
+                        }
+                    }
+
+                    // Clean up selectedPackages for any apps that are no longer installed
+                    Set<String> installedPkgs = new HashSet<>();
+                    for (TargetApp app : freshApps) {
+                        installedPkgs.add(app.getPackageName());
+                    }
+                    selectionManager.retainOnly(installedPkgs);
                 }
+
+                final int finalNewCount = newAppsCount;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        targetApps = freshApps;
+                        applySearchFilter();
+
+                        if (notifyUser) {
+                            String msg = (finalNewCount > 0)
+                                    ? String.format(Locale.US, "Refreshed: %d new app(s) discovered (%d total).", finalNewCount, targetApps.size())
+                                    : String.format(Locale.US, "Refreshed: %d installed apps up to date.", targetApps.size());
+                            Toast.makeText(AppSelectionActivity.this, msg, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
             }
-        }
-
-        // Clean up selectedPackages for any apps that are no longer installed
-        Set<String> installedPkgs = new HashSet<>();
-        for (TargetApp app : freshApps) {
-            installedPkgs.add(app.getPackageName());
-        }
-        selectionManager.retainOnly(installedPkgs);
-
-        targetApps = freshApps;
-        applySearchFilter();
-
-        if (notifyUser) {
-            String msg = (newAppsCount > 0)
-                    ? String.format(Locale.US, "Refreshed: %d new app(s) discovered (%d total).", newAppsCount, targetApps.size())
-                    : String.format(Locale.US, "Refreshed: %d installed apps up to date.", targetApps.size());
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-        }
+        }).start();
     }
 
     private void applySearchFilter() {
@@ -502,7 +523,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
             return;
         }
 
-        if (!SettingsInspectionAccessibilityService.isServiceRunning()) {
+        if (!ControlsClient.isA11yConnected(this)) {
             new AlertDialog.Builder(this)
                     .setTitle("Accessibility Service Required")
                     .setMessage("Multi-app cache cleaning requires RMX Cache Cleaner's Accessibility Probe to be active in Android Settings.\n\nPlease enable it and try again.")
@@ -576,7 +597,16 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
             adapter.updateApp(app);
         }
 
-        boolean started = PilotController.getInstance().startBatch(this, selectedApps, this);
+        boolean started = false;
+        if (SettingsInspectionAccessibilityService.isServiceRunning()) {
+            started = PilotController.getInstance().startBatch(this, selectedApps, this);
+        } else {
+            ArrayList<String> pkgList = new ArrayList<>();
+            for (TargetApp app : selectedApps) {
+                pkgList.add(app.getPackageName());
+            }
+            started = ControlsClient.startBatch(this, pkgList);
+        }
         if (!started) {
             isCleaningInProgress = false;
             setSelectionControlsEnabled(true);
@@ -681,6 +711,106 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         }
     }
 
+    private TargetApp findTargetApp(String packageName) {
+        if (packageName == null || targetApps == null) return null;
+        for (TargetApp app : targetApps) {
+            if (packageName.equals(app.getPackageName())) {
+                return app;
+            }
+        }
+        return null;
+    }
+
+    private void registerBatchReceiver() {
+        if (isBatchReceiverRegistered) return;
+        batchReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                String action = intent.getAction();
+                if (action == null) return;
+
+                switch (action) {
+                    case PilotController.ACTION_PILOT_STATE_CHANGED: {
+                        String stateStr = intent.getStringExtra(PilotController.EXTRA_PILOT_STATE);
+                        String message = intent.getStringExtra(PilotController.EXTRA_PILOT_MESSAGE);
+                        PilotController.State state = PilotController.State.IDLE;
+                        if (stateStr != null) {
+                            try {
+                                state = PilotController.State.valueOf(stateStr);
+                            } catch (Throwable ignored) {}
+                        }
+                        onPilotStateChanged(state, message);
+                        break;
+                    }
+                    case PilotController.ACTION_BATCH_PROGRESS: {
+                        int current = intent.getIntExtra(PilotController.EXTRA_BATCH_CURRENT, 0);
+                        int total = intent.getIntExtra(PilotController.EXTRA_BATCH_TOTAL, 0);
+                        String pkg = intent.getStringExtra(PilotController.EXTRA_PACKAGE_NAME);
+                        TargetApp app = findTargetApp(pkg);
+                        if (app != null) {
+                            app.setStatus(TargetApp.Status.CLEANING);
+                            app.setStatusDetail("Opening App Info & verifying identity...");
+                            onBatchProgress(current, total, app);
+                        }
+                        break;
+                    }
+                    case PilotController.ACTION_BATCH_APP_FINISHED: {
+                        String pkg = intent.getStringExtra(PilotController.EXTRA_PACKAGE_NAME);
+                        String outcomeStr = intent.getStringExtra(PilotController.EXTRA_OUTCOME);
+                        String cacheBefore = intent.getStringExtra(PilotController.EXTRA_CACHE_BEFORE);
+                        String cacheAfter = intent.getStringExtra(PilotController.EXTRA_CACHE_AFTER);
+                        String statusStr = intent.getStringExtra(PilotController.EXTRA_STATUS);
+                        String statusDetail = intent.getStringExtra(PilotController.EXTRA_STATUS_DETAIL);
+
+                        TargetApp app = findTargetApp(pkg);
+                        if (app != null) {
+                            if (cacheBefore != null) app.setCacheBefore(cacheBefore);
+                            if (cacheAfter != null) app.setCacheAfter(cacheAfter);
+                            if (statusStr != null) {
+                                try {
+                                    app.setStatus(TargetApp.Status.valueOf(statusStr));
+                                } catch (Throwable ignored) {}
+                            }
+                            if (statusDetail != null) app.setStatusDetail(statusDetail);
+
+                            PilotController.Outcome outcome = PilotController.Outcome.NONE;
+                            if (outcomeStr != null) {
+                                try {
+                                    outcome = PilotController.Outcome.valueOf(outcomeStr);
+                                } catch (Throwable ignored) {}
+                            }
+                            onAppFinished(app, outcome);
+                        }
+                        break;
+                    }
+                    case PilotController.ACTION_BATCH_FINISHED: {
+                        String summary = intent.getStringExtra(PilotController.EXTRA_SUMMARY);
+                        onBatchFinished(targetApps, summary);
+                        break;
+                    }
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(PilotController.ACTION_PILOT_STATE_CHANGED);
+        filter.addAction(PilotController.ACTION_BATCH_PROGRESS);
+        filter.addAction(PilotController.ACTION_BATCH_APP_FINISHED);
+        filter.addAction(PilotController.ACTION_BATCH_FINISHED);
+        registerReceiver(batchReceiver, filter);
+        isBatchReceiverRegistered = true;
+    }
+
+    private void unregisterBatchReceiver() {
+        if (isBatchReceiverRegistered && batchReceiver != null) {
+            try {
+                unregisterReceiver(batchReceiver);
+            } catch (Exception ignored) {}
+            isBatchReceiverRegistered = false;
+        }
+    }
+
     // =========================================================================
     // PilotController.PilotListener Callbacks
     // =========================================================================
@@ -732,17 +862,21 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
 
     @Override
     public void onBatchFinished(final List<TargetApp> batchResults, final String summary) {
+        if (!isCleaningInProgress) {
+            return;
+        }
+        isCleaningInProgress = false;
+
+        final List<TargetApp> finalResults = (batchResults != null && !batchResults.isEmpty()) ? batchResults : targetApps;
         final long batchDurationMs = System.currentTimeMillis() - batchStartTime;
         final long batchStorageAfter = StorageMeasurementUtil.getAvailableStorageBytes();
 
         int cleared = 0, alreadyClean = 0, failed = 0, cancelled = 0;
-        if (batchResults != null) {
-            for (TargetApp app : batchResults) {
-                if (app.getStatus() == TargetApp.Status.CLEARED) cleared++;
-                else if (app.getStatus() == TargetApp.Status.ALREADY_CLEAN) alreadyClean++;
-                else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
-                else if (app.getStatus() == TargetApp.Status.CANCELLED || app.getStatus() == TargetApp.Status.SKIPPED) cancelled++;
-            }
+        for (TargetApp app : finalResults) {
+            if (app.getStatus() == TargetApp.Status.CLEARED) cleared++;
+            else if (app.getStatus() == TargetApp.Status.ALREADY_CLEAN) alreadyClean++;
+            else if (app.getStatus() == TargetApp.Status.FAILED) failed++;
+            else if (app.getStatus() == TargetApp.Status.CANCELLED || app.getStatus() == TargetApp.Status.SKIPPED) cancelled++;
         }
 
         final CleaningHistoryRecord.Outcome outcome =
@@ -763,7 +897,7 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
                 batchDurationMs,
                 batchStorageBefore,
                 batchStorageAfter,
-                (batchResults != null ? batchResults.size() : 0),
+                finalResults.size(),
                 cleared,
                 alreadyClean,
                 failed,
@@ -775,16 +909,13 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                isCleaningInProgress = false;
                 setSelectionControlsEnabled(true);
                 btnCancelBatch.setVisibility(View.GONE);
                 llBatchProgress.setVisibility(View.GONE);
                 updateSelectionSummary();
 
-                if (batchResults != null) {
-                    for (TargetApp app : batchResults) {
-                        adapter.updateApp(app);
-                    }
+                for (TargetApp app : finalResults) {
+                    adapter.updateApp(app);
                 }
 
                 llBatchSummary.setVisibility(View.VISIBLE);
@@ -818,9 +949,18 @@ public class AppSelectionActivity extends Activity implements PilotController.Ba
         super.onResume();
         updateAccessibilityStatusBanner();
 
-        if (!isCleaningInProgress) {
-            // Automatically detect any installs/uninstalls that happened while in background
+        if (isCleaningInProgress && !ControlsClient.isBatchRunning(this)) {
+            isCleaningInProgress = false;
+            setSelectionControlsEnabled(true);
+            btnCancelBatch.setVisibility(View.GONE);
+            llBatchProgress.setVisibility(View.GONE);
+            updateSelectionSummary();
             refreshAppInventory(false);
+        } else if (!isCleaningInProgress) {
+            if (targetApps == null || targetApps.isEmpty() || needsRefreshAfterBatch) {
+                needsRefreshAfterBatch = false;
+                refreshAppInventory(false);
+            }
         }
     }
 

@@ -51,11 +51,16 @@ public class PowerMenuController {
         boolean performPowerDialog();
     }
 
+    private static Context applicationContext = null;
+
     private static final ActionDelegate DEFAULT_DELEGATE = new ActionDelegate() {
         @Override
         public boolean isServiceConnected() {
-            return SettingsInspectionAccessibilityService.isServiceRunning()
-                    && SettingsInspectionAccessibilityService.getInstance() != null;
+            if (SettingsInspectionAccessibilityService.isServiceRunning()
+                    && SettingsInspectionAccessibilityService.getInstance() != null) {
+                return true;
+            }
+            return ControlsClient.isA11yConnected(applicationContext);
         }
 
         @Override
@@ -89,7 +94,7 @@ public class PowerMenuController {
             if (service != null) {
                 return service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG);
             }
-            return false;
+            return ControlsClient.triggerPowerMenu(applicationContext);
         }
     };
 
@@ -107,6 +112,9 @@ public class PowerMenuController {
      * Inspects whether the required Accessibility service is ready, disabled, or disconnected.
      */
     public static Status getStatus(Context context) {
+        if (context != null) {
+            applicationContext = context.getApplicationContext();
+        }
         if (currentDelegate.isServiceConnected()) {
             return Status.READY;
         }
@@ -120,6 +128,9 @@ public class PowerMenuController {
      * Executes the native Android power dialog invocation with strict safety guards.
      */
     public static synchronized Result triggerPowerMenu(Context context) {
+        if (context != null) {
+            applicationContext = context.getApplicationContext();
+        }
         long now = System.currentTimeMillis();
         if (now - lastInvocationTime < THROTTLE_WINDOW_MS) {
             Log.w(TAG, "Power menu invocation throttled (< " + THROTTLE_WINDOW_MS + "ms).");

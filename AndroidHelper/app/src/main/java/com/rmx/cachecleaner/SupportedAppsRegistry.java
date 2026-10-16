@@ -85,6 +85,29 @@ public class SupportedAppsRegistry {
     }
 
     /**
+     * Validates and registers an installed package if it is eligible for cleaning.
+     * Useful for cross-process synchronization when batch is received in :controls.
+     */
+    public static boolean registerIfEligible(PackageManager pm, String packageName) {
+        if (pm == null || packageName == null || ProtectedPackages.isExcluded(packageName)) {
+            return false;
+        }
+        try {
+            ApplicationInfo ai = pm.getApplicationInfo(packageName.trim(), 0);
+            if (ai == null || !ai.enabled) return false;
+            boolean hasCode = (ai.flags & ApplicationInfo.FLAG_HAS_CODE) != 0;
+            if (!hasCode) return false;
+
+            CharSequence labelCs = pm.getApplicationLabel(ai);
+            String label = (labelCs != null && labelCs.length() > 0) ? labelCs.toString().trim() : packageName.trim();
+            registerAllowedPackage(packageName.trim(), label);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
      * Determines whether a package on the system is eligible for discovery.
      * All installed packages with valid application info are eligible for discovery.
      */

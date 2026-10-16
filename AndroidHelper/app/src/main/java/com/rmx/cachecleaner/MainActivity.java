@@ -2,8 +2,11 @@ package com.rmx.cachecleaner;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -140,6 +143,10 @@ public class MainActivity extends Activity {
                 }
             };
 
+    // Cross-process pilot receiver
+    private BroadcastReceiver pilotReceiver;
+    private boolean isPilotReceiverRegistered = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -157,8 +164,22 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        registerPilotReceiver();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterPilotReceiver();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        unregisterPilotReceiver();
+        PilotController.getInstance().setListener(null);
         try {
             Shizuku.removeRequestPermissionResultListener(permissionResultListener);
             Shizuku.removeBinderReceivedListener(binderReceivedListener);
@@ -270,11 +291,10 @@ public class MainActivity extends Activity {
                     if (fromUser) {
                         int clamped = Math.max(8, Math.min(50, progress));
                         float opacity = clamped / 100.0f;
-                        EdgeVolumePreferences.setHandleOpacity(MainActivity.this, opacity);
+                        ControlsClient.setHandleOpacity(MainActivity.this, opacity);
                         if (tvOpacityValueDisplay != null) {
                             tvOpacityValueDisplay.setText(clamped + "%");
                         }
-                        EdgeVolumeService.updateOpacity(MainActivity.this);
                     }
                 }
 
@@ -290,8 +310,7 @@ public class MainActivity extends Activity {
             btnResetEdgePosition.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    EdgeVolumePreferences.resetPosition(MainActivity.this);
-                    EdgeVolumeService.resetPosition(MainActivity.this);
+                    ControlsClient.resetHandlePosition(MainActivity.this);
                     Toast.makeText(MainActivity.this, "Handle position reset to middle.", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -301,8 +320,7 @@ public class MainActivity extends Activity {
             btnStopEdgeVolumeImmediate.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    EdgeVolumePreferences.setEnabled(MainActivity.this, false);
-                    EdgeVolumeService.stop(MainActivity.this);
+                    ControlsClient.enableEdgeVolume(MainActivity.this, false);
                     updateEdgeVolumeUi();
                     Toast.makeText(MainActivity.this, "Edge Volume Control stopped.", Toast.LENGTH_SHORT).show();
                 }
@@ -396,8 +414,12 @@ public class MainActivity extends Activity {
         updateHistorySection();
         handlePilotIntent(getIntent());
 
-        if (EdgeVolumePreferences.isEnabled(this) && Settings.canDrawOverlays(this) && !EdgeVolumeService.isServiceRunning()) {
-            EdgeVolumeService.start(this);
+        Bundle state = ControlsClient.getControlsState(this);
+        boolean isRunning = (state != null) ? state.getBoolean(ControlsProvider.KEY_IS_EDGE_VOLUME_RUNNING, false) : EdgeVolumeService.isServiceRunning();
+        boolean isPrefEnabled = (state != null) ? state.getBoolean(ControlsProvider.KEY_IS_EDGE_VOLUME_ENABLED, false) : EdgeVolumePreferences.isEnabled(this);
+
+        if (isPrefEnabled && Settings.canDrawOverlays(this) && !isRunning) {
+            ControlsClient.enableEdgeVolume(this, true);
             updateEdgeVolumeUi();
         }
     }
@@ -418,12 +440,12 @@ public class MainActivity extends Activity {
     }
 
     private void handleEdgeVolumeToggle() {
-        boolean isRunning = EdgeVolumeService.isServiceRunning();
-        boolean isPrefEnabled = EdgeVolumePreferences.isEnabled(this);
+        Bundle state = ControlsClient.getControlsState(this);
+        boolean isRunning = (state != null) ? state.getBoolean(ControlsProvider.KEY_IS_EDGE_VOLUME_RUNNING, false) : EdgeVolumeService.isServiceRunning();
+        boolean isPrefEnabled = (state != null) ? state.getBoolean(ControlsProvider.KEY_IS_EDGE_VOLUME_ENABLED, false) : EdgeVolumePreferences.isEnabled(this);
 
         if (isRunning || isPrefEnabled) {
-            EdgeVolumePreferences.setEnabled(this, false);
-            EdgeVolumeService.stop(this);
+            ControlsClient.enableEdgeVolume(this, false);
             updateEdgeVolumeUi();
             if (btnToggleEdgeVolume != null) {
                 btnToggleEdgeVolume.postDelayed(new Runnable() {
@@ -438,8 +460,7 @@ public class MainActivity extends Activity {
             if (!Settings.canDrawOverlays(this)) {
                 showOverlayPermissionRequiredDialog();
             } else {
-                EdgeVolumePreferences.setEnabled(this, true);
-                EdgeVolumeService.start(this);
+                ControlsClient.enableEdgeVolume(this, true);
                 updateEdgeVolumeUi();
                 if (btnToggleEdgeVolume != null) {
                     btnToggleEdgeVolume.postDelayed(new Runnable() {
@@ -470,8 +491,10 @@ public class MainActivity extends Activity {
 
     private void updateEdgeVolumeUi() {
         boolean hasOverlayPerm = Settings.canDrawOverlays(this);
-        boolean isRunning = EdgeVolumeService.isServiceRunning();
-        boolean isPrefEnabled = EdgeVolumePreferences.isEnabled(this);
+        Bundle state = ControlsClient.getControlsState(this);
+        boolean isRunning = (state != null) ? state.getBoolean(ControlsProvider.KEY_IS_EDGE_VOLUME_RUNNING, false) : EdgeVolumeService.isServiceRunning();
+        boolean isPrefEnabled = (state != null) ? state.getBoolean(ControlsProvider.KEY_IS_EDGE_VOLUME_ENABLED, false) : EdgeVolumePreferences.isEnabled(this);
+        float opacity = (state != null) ? state.getFloat(ControlsProvider.KEY_HANDLE_OPACITY, 0.15f) : EdgeVolumePreferences.getHandleOpacity(this);
 
         if (llEdgeVolumePermWarning != null) {
             llEdgeVolumePermWarning.setVisibility(hasOverlayPerm ? View.GONE : View.VISIBLE);
@@ -507,7 +530,7 @@ public class MainActivity extends Activity {
         }
 
         if (seekHandleOpacity != null) {
-            int opacityPct = Math.round(EdgeVolumePreferences.getHandleOpacity(this) * 100);
+            int opacityPct = Math.round(opacity * 100);
             seekHandleOpacity.setProgress(opacityPct);
             if (tvOpacityValueDisplay != null) {
                 tvOpacityValueDisplay.setText(opacityPct + "%");
@@ -926,16 +949,75 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void registerPilotReceiver() {
+        if (isPilotReceiverRegistered) return;
+        pilotReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                if (PilotController.ACTION_PILOT_FINISHED.equals(intent.getAction())) {
+                    String outcomeStr = intent.getStringExtra(PilotController.EXTRA_OUTCOME);
+                    String before = intent.getStringExtra(PilotController.EXTRA_CACHE_BEFORE);
+                    String after = intent.getStringExtra(PilotController.EXTRA_CACHE_AFTER);
+                    String summary = intent.getStringExtra(PilotController.EXTRA_SUMMARY);
+
+                    final PilotController.PilotResult result = new PilotController.PilotResult();
+                    if (outcomeStr != null) {
+                        try {
+                            result.outcome = PilotController.Outcome.valueOf(outcomeStr);
+                        } catch (Throwable ignored) {}
+                    }
+                    if (before != null) result.cacheBefore = before;
+                    if (after != null) result.cacheAfter = after;
+                    if (summary != null) result.summaryMessage = summary;
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            renderPilotResult(result);
+                        }
+                    });
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(PilotController.ACTION_PILOT_FINISHED);
+        registerReceiver(pilotReceiver, filter);
+        isPilotReceiverRegistered = true;
+    }
+
+    private void unregisterPilotReceiver() {
+        if (isPilotReceiverRegistered && pilotReceiver != null) {
+            try {
+                unregisterReceiver(pilotReceiver);
+            } catch (Exception ignored) {}
+            isPilotReceiverRegistered = false;
+        }
+    }
+
     private void handlePilotIntent(Intent intent) {
         if (intent != null && intent.hasExtra("pilot_outcome")) {
-            PilotController.PilotResult result = PilotController.getInstance().getCurrentResult();
+            String outcomeStr = intent.getStringExtra("pilot_outcome");
+            String before = intent.getStringExtra("pilot_before");
+            String after = intent.getStringExtra("pilot_after");
+            String summary = intent.getStringExtra("pilot_summary");
+
+            PilotController.PilotResult result = new PilotController.PilotResult();
+            if (outcomeStr != null) {
+                try {
+                    result.outcome = PilotController.Outcome.valueOf(outcomeStr);
+                } catch (Throwable ignored) {}
+            }
+            if (before != null) result.cacheBefore = before;
+            if (after != null) result.cacheAfter = after;
+            if (summary != null) result.summaryMessage = summary;
+
             renderPilotResult(result);
             intent.removeExtra("pilot_outcome");
         }
     }
 
     private void showPilotStep1ConfirmationDialog() {
-        if (!SettingsInspectionAccessibilityService.isServiceRunning()) {
+        if (!ControlsClient.isA11yConnected(this)) {
             new AlertDialog.Builder(this)
                     .setTitle("Accessibility Service Required")
                     .setMessage("To test private cache cleaning, RMX Device Hub's Accessibility Service must be active in Android Settings.\n\nPlease enable it and try again.")
@@ -967,7 +1049,12 @@ public class MainActivity extends Activity {
         if (llPilotResult != null) {
             llPilotResult.setVisibility(View.GONE);
         }
-        boolean started = PilotController.getInstance().startPilot(this);
+        boolean started = false;
+        if (SettingsInspectionAccessibilityService.isServiceRunning()) {
+            started = PilotController.getInstance().startPilot(this);
+        } else {
+            started = ControlsClient.startPilot(this);
+        }
         if (!started) {
             Toast.makeText(this, "Failed to initiate pilot test.", Toast.LENGTH_SHORT).show();
         }

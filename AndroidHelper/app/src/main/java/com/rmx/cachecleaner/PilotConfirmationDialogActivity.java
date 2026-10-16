@@ -44,7 +44,10 @@ public class PilotConfirmationDialogActivity extends Activity {
         btnCancel.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                PilotController.getInstance().cancel("User cancelled at Step 2 confirmation dialog.");
+                if (SettingsInspectionAccessibilityService.isServiceRunning()) {
+                    PilotController.getInstance().cancel("User cancelled at Step 2 confirmation dialog.");
+                }
+                ControlsClient.cancelBatch(PilotConfirmationDialogActivity.this, "User cancelled at Step 2 confirmation dialog.");
                 finish();
             }
         });
@@ -52,7 +55,10 @@ public class PilotConfirmationDialogActivity extends Activity {
         btnProceed.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                PilotController.getInstance().confirmFinalExecution();
+                if (SettingsInspectionAccessibilityService.isServiceRunning()) {
+                    PilotController.getInstance().confirmFinalExecution();
+                }
+                ControlsClient.confirmPilotStep2(PilotConfirmationDialogActivity.this);
                 finish();
             }
         });
@@ -60,7 +66,10 @@ public class PilotConfirmationDialogActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        PilotController.getInstance().cancel("User pressed Back at Step 2 confirmation dialog.");
+        if (SettingsInspectionAccessibilityService.isServiceRunning()) {
+            PilotController.getInstance().cancel("User pressed Back at Step 2 confirmation dialog.");
+        }
+        ControlsClient.cancelBatch(this, "User pressed Back at Step 2 confirmation dialog.");
         super.onBackPressed();
     }
 }
